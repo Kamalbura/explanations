@@ -1,81 +1,100 @@
 import { useState, useEffect } from 'react'
-import { Search, Filter, ExternalLink, CheckCircle, Circle, Clock, RefreshCw, TrendingUp, Loader2 } from 'lucide-react'
-import { LeetCodeService, type LeetCodeProblem, type LeetCodeStats } from '../services/LeetCodeService'
+import { Search, Filter, SortAsc, ExternalLink, CheckCircle, Circle, Clock, RefreshCw, TrendingUp, Target, BookOpen, Code, Grid, List, LayoutGrid } from 'lucide-react'
+import { LeetCodeService, type LeetCodeStats } from '../services/LeetCodeService'
+import { leetCodeProblemsService, type LeetCodeProblem, type ProblemCategory } from '../services/LeetCodeProblemsService'
 
 interface Problem {
   id: string
   title: string
   titleSlug?: string
-  difficulty: 'Easy' | 'Medium' | 'Hard' | 'easy' | 'medium' | 'hard'
+  difficulty: 'easy' | 'medium' | 'hard'
   category: string
-  status: 'not-started' | 'in-progress' | 'completed' | 'attempted' | 'ac' | 'notac'
+  status: 'not-started' | 'in-progress' | 'completed' | 'attempted'
   platform: 'leetcode' | 'neetcode' | 'striver' | 'other'
   tags: string[]
-  timeSpent?: number
-  attempts?: number
+  timeSpent: number
+  attempts: number
   lastAttempt?: Date
   language?: string
   runtime?: string
   memory?: string
   leetcodeUrl?: string
+  acRate?: number
+  isPaidOnly?: boolean
 }
 
-type ProblemCategory = 
-  'Array' | 'String' | 'Hash Table' | 'Dynamic Programming' | 
-  'Math' | 'Sorting' | 'Greedy' | 'Depth-First Search' | 
-  'Binary Search' | 'Database' | 'Breadth-First Search' | 
-  'Tree' | 'Matrix' | 'Two Pointers' | 'Bit Manipulation' |
-  'Stack' | 'Heap' | 'Graph' | 'Other';
-
-const getProblemCategory = (tags: string[]): string => {
-  const mainCategories: ProblemCategory[] = [
-    'Array', 'String', 'Hash Table', 'Dynamic Programming', 
-    'Math', 'Sorting', 'Greedy', 'Depth-First Search', 
-    'Binary Search', 'Database', 'Breadth-First Search', 
-    'Tree', 'Matrix', 'Two Pointers', 'Bit Manipulation',
-    'Stack', 'Heap', 'Graph'
-  ];
-  
-  for (const category of mainCategories) {
-    if (tags.some(tag => tag.includes(category))) {
-      return category;
-    }
-  }
-  return 'Other';
-};
-
-const mapLeetCodeProblem = (leetcodeProblem: LeetCodeProblem): Problem => {
-  const tags = leetcodeProblem.topicTags.map(tag => tag.name);
-  const category = getProblemCategory(tags);
-  
-  return {
-    id: leetcodeProblem.id,
-    title: leetcodeProblem.title,
-    titleSlug: leetcodeProblem.titleSlug,
-    difficulty: leetcodeProblem.difficulty,
-    category,
-    status: leetcodeProblem.status || 'not-started',
-    platform: 'leetcode',
-    tags,
-    leetcodeUrl: `https://leetcode.com/problems/${leetcodeProblem.titleSlug}/`
-  };
-};
+type ViewMode = 'cards' | 'compact' | 'list'
 
 const ProblemBrowser = () => {
   const [problems, setProblems] = useState<Problem[]>([])
   const [filteredProblems, setFilteredProblems] = useState<Problem[]>([])
+  const [problemCategories, setProblemsCategories] = useState<ProblemCategory[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('all')
   const [sortBy, setSortBy] = useState<string>('title')
   const [leetcodeStats, setLeetcodeStats] = useState<LeetCodeStats | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showLeetCodeSync, setShowLeetCodeSync] = useState(false)
-  const [leetcodeUsername, setLeetcodeUsername] = useState<string>('')
-  const [categories, setCategories] = useState<string[]>(['all'])
-  const [loadingStage, setLoadingStage] = useState<string>('')
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
+
+  // Load LeetCode problems on component mount
+  useEffect(() => {
+    loadLeetCodeProblems()
+  }, [])
+
+  const loadLeetCodeProblems = async () => {
+    setIsLoading(true)
+    try {
+      // Load categories and problems
+      const categoriesData = await leetCodeProblemsService.getAllCategories()
+      setProblemsCategories(categoriesData)
+
+      // Convert LeetCode problems to our Problem interface
+      const allProblems: Problem[] = []
+      
+      for (const category of categoriesData) {
+        for (const leetcodeProblem of category.problems) {
+          const problem: Problem = {
+            id: leetcodeProblem.id,
+            title: leetcodeProblem.title,
+            titleSlug: leetcodeProblem.titleSlug,
+            difficulty: leetcodeProblem.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard',
+            category: category.name,
+            status: convertLeetCodeStatus(leetcodeProblem.status),
+            platform: 'leetcode',
+            tags: leetcodeProblem.topicTags.map(tag => tag.slug),
+            timeSpent: Math.floor(Math.random() * 60), // Mock time spent
+            attempts: leetcodeProblem.status === 'Solved' ? Math.floor(Math.random() * 3) + 1 : 
+                     leetcodeProblem.status === 'Attempted' ? Math.floor(Math.random() * 2) + 1 : 0,
+            leetcodeUrl: leetcodeProblem.url,
+            acRate: leetcodeProblem.acRate,
+            isPaidOnly: leetcodeProblem.isPaidOnly
+          }
+          allProblems.push(problem)
+        }
+      }
+
+      setProblems(allProblems)
+      setFilteredProblems(allProblems)
+    } catch (error) {
+      console.error('Error loading LeetCode problems:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const convertLeetCodeStatus = (leetcodeStatus: string): 'not-started' | 'in-progress' | 'completed' | 'attempted' => {
+    switch (leetcodeStatus) {
+      case 'Solved':
+        return 'completed'
+      case 'Attempted':
+        return 'attempted'
+      default:
+        return 'not-started'
+    }
+  }
 
   // Load settings and check for LeetCode integration
   useEffect(() => {
@@ -84,110 +103,63 @@ const ProblemBrowser = () => {
       try {
         const parsed = JSON.parse(settings)
         if (parsed.leetcodeUsername) {
-          setLeetcodeUsername(parsed.leetcodeUsername)
           setShowLeetCodeSync(true)
-          loadLeetCodeStats(parsed.leetcodeUsername)
-          loadProblems(parsed.leetcodeUsername)
+          loadLeetCodeStats()
         }
       } catch (error) {
         console.error('Error loading settings:', error)
       }
-    } else {
-      loadDefaultProblems()
     }
   }, [])
 
-  const loadLeetCodeStats = async (username: string) => {
+  const loadLeetCodeStats = () => {
+    const stats = localStorage.getItem('leetcode-stats')
+    if (stats) {
+      try {
+        setLeetcodeStats(JSON.parse(stats))
+      } catch (error) {
+        console.error('Error loading LeetCode stats:', error)
+      }
+    }
+  }
+
+  const syncWithLeetCode = async () => {
+    const settings = localStorage.getItem('dsa-tracker-settings')
+    if (!settings) return
+
     try {
+      const parsed = JSON.parse(settings)
+      if (!parsed.leetcodeUsername) return
+
       setIsLoading(true)
-      setLoadingStage('Loading LeetCode stats...')
+      const updatedProblems = await LeetCodeService.syncProgress(parsed.leetcodeUsername, problems)
+      setProblems(updatedProblems)
       
-      const stats = await LeetCodeService.getUserStats(username)
+      const stats = await LeetCodeService.getUserStats(parsed.leetcodeUsername)
       if (stats) {
         setLeetcodeStats(stats)
         localStorage.setItem('leetcode-stats', JSON.stringify(stats))
+        localStorage.setItem('last-leetcode-sync', new Date().toISOString())
       }
     } catch (error) {
-      console.error('Error loading LeetCode stats:', error)
-    } finally {
-      setLoadingStage('')
-    }
-  }
-
-  const loadProblems = async (username: string) => {
-    try {
-      setIsLoading(true)
-      setLoadingStage('Loading LeetCode problems...')
-      
-      // Get all problems
-      const leetcodeProblems = await LeetCodeService.getAllProblems(100)
-      
-      if (leetcodeProblems.length === 0) {
-        loadDefaultProblems()
-        return
-      }
-
-      setLoadingStage('Processing problem data...')
-      
-      // Convert LeetCode problems to our format
-      const mappedProblems = leetcodeProblems.map(mapLeetCodeProblem)
-      
-      // Extract all unique categories
-      const uniqueCategories = ['all', ...Array.from(new Set(mappedProblems.map(p => p.category)))];
-      setCategories(uniqueCategories)
-      
-      setProblems(mappedProblems)
-      setFilteredProblems(mappedProblems)
-      
-      // Sync with user progress if username is available
-      if (username) {
-        setLoadingStage('Syncing your progress...')
-        const problemSlugs = mappedProblems.map(p => p.titleSlug || '').filter(Boolean)
-        const progressMap = await LeetCodeService.getUserProgress(username, problemSlugs)
-        
-        if (progressMap.size > 0) {
-          const updatedProblems = mappedProblems.map(problem => {
-            if (problem.titleSlug && progressMap.has(problem.titleSlug)) {
-              const status = progressMap.get(problem.titleSlug);
-              // Ensure we cast the status to a valid value in our type
-              const validStatus = (status === 'completed' || status === 'attempted' || 
-                                 status === 'in-progress' || status === 'not-started' || 
-                                 status === 'ac' || status === 'notac') 
-                                 ? status as Problem['status'] 
-                                 : problem.status;
-              
-              return {
-                ...problem,
-                status: validStatus
-              }
-            }
-            return problem
-          })
-          
-          setProblems(updatedProblems)
-          setFilteredProblems(updatedProblems)
-        }
-      }
-    } catch (error) {
-      console.error('Error loading problems:', error)
+      console.error('Error syncing with LeetCode:', error)
     } finally {
       setIsLoading(false)
-      setLoadingStage('')
     }
   }
 
-  const loadDefaultProblems = () => {
-    // In case LeetCode API fails or no username, load mock data
+  // Mock data - in real app, this would come from your DSA collections
+  useEffect(() => {
     const mockProblems: Problem[] = [
       {
         id: '1',
         title: 'Two Sum',
         titleSlug: 'two-sum',
-        difficulty: 'Easy',
-        category: 'Array',
-        status: 'not-started',
+        difficulty: 'easy',
+        category: 'Arrays',
+        status: 'completed',
         platform: 'leetcode',
-        tags: ['Array', 'Hash Table'],
+        tags: ['hash-table', 'array'],
         timeSpent: 15,
         attempts: 2,
         leetcodeUrl: 'https://leetcode.com/problems/two-sum/'
@@ -196,11 +168,11 @@ const ProblemBrowser = () => {
         id: '2',
         title: 'Binary Tree Maximum Path Sum',
         titleSlug: 'binary-tree-maximum-path-sum',
-        difficulty: 'Hard',
-        category: 'Tree',
+        difficulty: 'hard',
+        category: 'Trees',
         status: 'attempted',
-        platform: 'leetcode',
-        tags: ['Tree', 'Depth-First Search'],
+        platform: 'neetcode',
+        tags: ['tree', 'dfs', 'recursion'],
         timeSpent: 45,
         attempts: 3,
         leetcodeUrl: 'https://leetcode.com/problems/binary-tree-maximum-path-sum/'
@@ -209,11 +181,11 @@ const ProblemBrowser = () => {
         id: '3',
         title: 'Valid Parentheses',
         titleSlug: 'valid-parentheses',
-        difficulty: 'Easy',
+        difficulty: 'easy',
         category: 'Stack',
         status: 'completed',
         platform: 'leetcode',
-        tags: ['Stack', 'String'],
+        tags: ['stack', 'string'],
         timeSpent: 12,
         attempts: 1,
         leetcodeUrl: 'https://leetcode.com/problems/valid-parentheses/'
@@ -222,11 +194,11 @@ const ProblemBrowser = () => {
         id: '4',
         title: 'Merge k Sorted Lists',
         titleSlug: 'merge-k-sorted-lists',
-        difficulty: 'Hard',
-        category: 'Heap',
+        difficulty: 'hard',
+        category: 'Linked Lists',
         status: 'not-started',
-        platform: 'leetcode',
-        tags: ['Linked List', 'Heap', 'Divide and Conquer'],
+        platform: 'striver',
+        tags: ['linked-list', 'heap', 'divide-conquer'],
         timeSpent: 0,
         attempts: 0,
         leetcodeUrl: 'https://leetcode.com/problems/merge-k-sorted-lists/'
@@ -235,11 +207,11 @@ const ProblemBrowser = () => {
         id: '5',
         title: 'Longest Palindromic Substring',
         titleSlug: 'longest-palindromic-substring',
-        difficulty: 'Medium',
+        difficulty: 'medium',
         category: 'Dynamic Programming',
         status: 'in-progress',
         platform: 'leetcode',
-        tags: ['String', 'Dynamic Programming'],
+        tags: ['string', 'dynamic-programming'],
         timeSpent: 30,
         attempts: 2,
         leetcodeUrl: 'https://leetcode.com/problems/longest-palindromic-substring/'
@@ -247,79 +219,41 @@ const ProblemBrowser = () => {
     ]
     setProblems(mockProblems)
     setFilteredProblems(mockProblems)
-    setCategories(['all', ...Array.from(new Set(mockProblems.map(p => p.category)))])
-    setIsLoading(false)
-  }
-
-  const syncWithLeetCode = async () => {
-    if (!leetcodeUsername) return
-
-    try {
-      setIsLoading(true)
-      setLoadingStage('Refreshing LeetCode data...')
-      
-      await loadLeetCodeStats(leetcodeUsername)
-      await loadProblems(leetcodeUsername)
-      
-      localStorage.setItem('last-leetcode-sync', new Date().toISOString())
-    } catch (error) {
-      console.error('Error syncing with LeetCode:', error)
-    } finally {
-      setIsLoading(false)
-      setLoadingStage('')
-    }
-  }
+  }, [])
 
   // Filter and sort problems
   useEffect(() => {
     let filtered = problems.filter(problem => {
       const matchesSearch = problem.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            problem.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-      const matchesDifficulty = selectedDifficulty === 'all' || 
-                              problem.difficulty.toLowerCase() === selectedDifficulty.toLowerCase()
+      const matchesDifficulty = selectedDifficulty === 'all' || problem.difficulty === selectedDifficulty
       const matchesCategory = selectedCategory === 'all' || problem.category === selectedCategory
-      const matchesStatus = selectedStatus === 'all' || mapStatus(problem.status) === selectedStatus
-      const matchesPlatform = selectedPlatform === 'all' || problem.platform === selectedPlatform
+      const matchesStatus = selectedStatus === 'all' || problem.status === selectedStatus
 
-      return matchesSearch && matchesDifficulty && matchesCategory && matchesStatus && matchesPlatform
+      return matchesSearch && matchesDifficulty && matchesCategory && matchesStatus
     })
 
     // Sort problems
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'difficulty':
-          const difficultyOrder: { [key: string]: number } = { 
-            easy: 1, medium: 2, hard: 3,
-            Easy: 1, Medium: 2, Hard: 3 
-          }
+          const difficultyOrder = { easy: 1, medium: 2, hard: 3 }
           return difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty]
         case 'status':
-          const statusOrder: { [key: string]: number } = { 
-            'not-started': 1, 'notac': 1,
-            'in-progress': 2, 'attempted': 3, 
-            'completed': 4, 'ac': 4
-          }
-          return (statusOrder[a.status] || 1) - (statusOrder[b.status] || 1)
-        case 'id':
-          return Number(a.id) - Number(b.id)
+          const statusOrder: { [key: string]: number } = { 'not-started': 1, 'in-progress': 2, 'attempted': 3, completed: 4 }
+          return statusOrder[a.status] - statusOrder[b.status]
+        case 'timeSpent':
+          return b.timeSpent - a.timeSpent
         default:
           return a.title.localeCompare(b.title)
       }
     })
 
     setFilteredProblems(filtered)
-  }, [problems, searchTerm, selectedDifficulty, selectedCategory, selectedStatus, selectedPlatform, sortBy])
-
-  const mapStatus = (status: string): string => {
-    if (status === 'ac') return 'completed'
-    if (status === 'notac') return 'attempted'
-    return status
-  }
+  }, [problems, searchTerm, selectedDifficulty, selectedCategory, selectedStatus, sortBy])
 
   const getStatusIcon = (status: string) => {
-    const mappedStatus = mapStatus(status)
-    
-    switch (mappedStatus) {
+    switch (status) {
       case 'completed':
         return <CheckCircle className="w-5 h-5 text-green-500" />
       case 'in-progress':
@@ -332,7 +266,7 @@ const ProblemBrowser = () => {
   }
 
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
+    switch (difficulty) {
       case 'easy':
         return 'text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400'
       case 'medium':
@@ -344,70 +278,39 @@ const ProblemBrowser = () => {
     }
   }
 
-  // Loading skeleton for the problem browser
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Problem Browser</h1>
-            <div className="flex items-center space-x-2 mt-1">
-              <Loader2 className="w-4 h-4 text-primary-500 animate-spin" />
-              <p className="text-gray-600 dark:text-gray-400">{loadingStage || 'Loading problems...'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Skeleton for filters */}
-        <div className="card">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg"></div>
-            ))}
-          </div>
-        </div>
-
-        {/* Skeleton for problems */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[...Array(9)].map((_, i) => (
-            <div key={i} className="card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="h-6 w-4/5 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
-                <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
-              </div>
-              <div className="flex items-center space-x-2 mb-3">
-                <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-full"></div>
-                <div className="h-6 w-24 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-full"></div>
-              </div>
-              <div className="h-5 w-1/2 bg-gray-200 dark:bg-gray-700 animate-pulse rounded mb-3"></div>
-              <div className="flex flex-wrap gap-1 mb-4">
-                {[...Array(3)].map((_, j) => (
-                  <div key={j} className="h-6 w-16 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
-                ))}
-              </div>
-              <div className="mt-4 flex space-x-2">
-                <div className="h-9 w-full bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
-                <div className="h-9 w-16 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
+  const categoryOptions = ['all', ...Array.from(new Set(problems.map(p => p.category)))]
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Problem Browser</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">LeetCode Problem Browser</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Explore and track your progress across {problems.length} problems
+            🔥 Live LeetCode problems organized by DSA topics - {problems.length} problems loaded
           </p>
+          {isLoading && (
+            <p className="text-blue-600 dark:text-blue-400 mt-1 flex items-center">
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              Loading fresh problems from LeetCode...
+            </p>
+          )}
         </div>
         
         <div className="mt-4 md:mt-0 space-y-4">
+          {/* Refresh Problems Button */}
+          <div className="flex justify-end space-x-2">
+            <button
+              onClick={loadLeetCodeProblems}
+              disabled={isLoading}
+              className="btn-secondary px-4 py-2 flex items-center space-x-2"
+              title="Refresh Problems"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isLoading ? 'Loading...' : 'Refresh'}</span>
+            </button>
+          </div>
+          
           {/* LeetCode Sync Button */}
           {showLeetCodeSync && (
             <div className="flex justify-end">
@@ -416,8 +319,8 @@ const ProblemBrowser = () => {
                 disabled={isLoading}
                 className="btn-primary px-4 py-2 flex items-center space-x-2"
               >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span>{isLoading ? 'Syncing...' : 'Sync with LeetCode'}</span>
+                <TrendingUp className="w-4 h-4" />
+                <span>Sync Progress</span>
               </button>
             </div>
           )}
@@ -426,7 +329,7 @@ const ProblemBrowser = () => {
           <div className="flex items-center space-x-4 text-sm">
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span>Completed ({problems.filter(p => ['completed', 'ac'].includes(p.status)).length})</span>
+              <span>Completed ({problems.filter(p => p.status === 'completed').length})</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
@@ -434,11 +337,11 @@ const ProblemBrowser = () => {
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>Attempted ({problems.filter(p => ['attempted', 'notac'].includes(p.status)).length})</span>
+              <span>Attempted ({problems.filter(p => p.status === 'attempted').length})</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-              <span>Not Started ({problems.filter(p => ['not-started', null].includes(p.status as any)).length})</span>
+              <span>Not Started ({problems.filter(p => p.status === 'not-started').length})</span>
             </div>
           </div>
           
@@ -495,7 +398,7 @@ const ProblemBrowser = () => {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
           >
-            {categories.map(category => (
+            {categoryOptions.map(category => (
               <option key={category} value={category}>
                 {category === 'all' ? 'All Categories' : category}
               </option>
@@ -522,79 +425,243 @@ const ProblemBrowser = () => {
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
           >
             <option value="title">Sort by Title</option>
-            <option value="id">Sort by Problem ID</option>
             <option value="difficulty">Sort by Difficulty</option>
             <option value="status">Sort by Status</option>
+            <option value="timeSpent">Sort by Time Spent</option>
           </select>
         </div>
       </div>
 
-      {/* Problems Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredProblems.map((problem) => (
-          <div key={problem.id} className="card hover:shadow-xl transition-all duration-300">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                {getStatusIcon(problem.status)}
-                <h3 className="font-semibold text-gray-900 dark:text-white">
-                  {problem.id}. {problem.title}
-                </h3>
-              </div>
-              <ExternalLink 
-                className="w-4 h-4 text-gray-400 hover:text-primary-500 cursor-pointer" 
-                onClick={() => problem.leetcodeUrl && window.open(problem.leetcodeUrl, '_blank')}
-              />
-            </div>
-
-            <div className="flex items-center space-x-2 mb-3">
-              <span className={`px-2 py-1 text-xs rounded-full font-medium ${getDifficultyColor(problem.difficulty)}`}>
-                {problem.difficulty}
-              </span>
-              <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
-                {problem.platform}
-              </span>
-            </div>
-
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Category: {problem.category}
-            </p>
-
-            <div className="flex flex-wrap gap-1 mb-4">
-              {problem.tags.slice(0, 3).map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
-                >
-                  {tag}
-                </span>
-              ))}
-              {problem.tags.length > 3 && (
-                <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
-                  +{problem.tags.length - 3} more
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4 flex space-x-2">
-              <button 
-                onClick={() => problem.leetcodeUrl && window.open(problem.leetcodeUrl, '_blank')}
-                className="btn-primary flex-1 text-sm py-2"
-              >
-                {['completed', 'ac'].includes(problem.status) ? 'Review' : 'Solve'}
-              </button>
-              <button 
-                onClick={() => problem.leetcodeUrl && window.open(problem.leetcodeUrl, '_blank')}
-                className="btn-secondary text-sm py-2 px-4"
-              >
-                View
-              </button>
-            </div>
+      {/* View Mode Controls */}
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center space-x-2">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">View:</span>
+          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`p-2 rounded-lg transition-colors ${
+                viewMode === 'cards' 
+                  ? 'bg-white dark:bg-gray-600 text-primary-600 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+              title="Card View"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('compact')}
+              className={`p-2 rounded-lg transition-colors ${
+                viewMode === 'compact' 
+                  ? 'bg-white dark:bg-gray-600 text-primary-600 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+              title="Compact View"
+            >
+              <Grid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-lg transition-colors ${
+                viewMode === 'list' 
+                  ? 'bg-white dark:bg-gray-600 text-primary-600 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+              title="List View"
+            >
+              <List className="w-4 h-4" />
+            </button>
           </div>
-        ))}
+        </div>
+        
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {filteredProblems.length} problems found
+        </div>
       </div>
 
+      {/* Problems Display */}
+      {viewMode === 'cards' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredProblems.map((problem) => (
+            <div key={problem.id} className="card hover:shadow-xl transition-all duration-300">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center space-x-2">
+                  {getStatusIcon(problem.status)}
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {problem.title}
+                  </h3>
+                </div>
+                <ExternalLink 
+                  className="w-4 h-4 text-gray-400 hover:text-primary-500 cursor-pointer" 
+                  onClick={() => problem.leetcodeUrl && window.open(problem.leetcodeUrl, '_blank')}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 mb-3">
+                <span className={`px-2 py-1 text-xs rounded-full font-medium ${getDifficultyColor(problem.difficulty)}`}>
+                  {problem.difficulty}
+                </span>
+                <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
+                  LeetCode
+                </span>
+                {problem.acRate && (
+                  <span className="px-2 py-1 text-xs rounded-full bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400">
+                    {problem.acRate.toFixed(1)}% AC
+                  </span>
+                )}
+                {problem.isPaidOnly && (
+                  <span className="px-2 py-1 text-xs rounded-full bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400">
+                    💰 Premium
+                  </span>
+                )}
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                Category: {problem.category}
+              </p>
+
+              <div className="flex flex-wrap gap-1 mb-4">
+                {problem.tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+                <span>Time: {problem.timeSpent}m</span>
+                <span>Attempts: {problem.attempts}</span>
+              </div>
+
+              <div className="mt-4 flex space-x-2">
+                <button 
+                  onClick={() => problem.leetcodeUrl && window.open(problem.leetcodeUrl, '_blank')}
+                  className="btn-primary flex-1 text-sm py-2 flex items-center justify-center space-x-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>{problem.status === 'completed' ? 'Review on LeetCode' : 'Solve on LeetCode'}</span>
+                </button>
+                <button className="btn-secondary text-sm py-2 px-4">
+                  Track
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {viewMode === 'compact' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredProblems.map((problem) => (
+            <div key={problem.id} className="card p-4 hover:shadow-lg transition-all duration-300">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  {getStatusIcon(problem.status)}
+                  <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                    {problem.title}
+                  </h3>
+                </div>
+                <ExternalLink 
+                  className="w-3 h-3 text-gray-400 hover:text-primary-500 cursor-pointer flex-shrink-0" 
+                  onClick={() => problem.leetcodeUrl && window.open(problem.leetcodeUrl, '_blank')}
+                />
+              </div>
+              
+              <div className="flex items-center space-x-1 mb-2">
+                <span className={`px-1.5 py-0.5 text-xs rounded-full font-medium ${getDifficultyColor(problem.difficulty)}`}>
+                  {problem.difficulty.charAt(0).toUpperCase()}
+                </span>
+                {problem.acRate && (
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400">
+                    {problem.acRate.toFixed(0)}%
+                  </span>
+                )}
+              </div>
+              
+              <button 
+                onClick={() => problem.leetcodeUrl && window.open(problem.leetcodeUrl, '_blank')}
+                className="w-full btn-primary text-xs py-1.5 flex items-center justify-center space-x-1"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>Solve</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {viewMode === 'list' && (
+        <div className="card">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Problem</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Difficulty</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Category</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Acceptance</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Time</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProblems.map((problem) => (
+                  <tr key={problem.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td className="py-3 px-4">
+                      {getStatusIcon(problem.status)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-medium text-gray-900 dark:text-white">{problem.title}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {problem.tags.slice(0, 3).map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        {problem.tags.length > 3 && (
+                          <span className="text-xs text-gray-400">+{problem.tags.length - 3}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${getDifficultyColor(problem.difficulty)}`}>
+                        {problem.difficulty}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                      {problem.category}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                      {problem.acRate ? `${problem.acRate.toFixed(1)}%` : 'N/A'}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                      {problem.timeSpent}m
+                    </td>
+                    <td className="py-3 px-4">
+                      <button 
+                        onClick={() => problem.leetcodeUrl && window.open(problem.leetcodeUrl, '_blank')}
+                        className="btn-primary text-xs py-1.5 px-3 flex items-center space-x-1"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Solve</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Empty State */}
-      {filteredProblems.length === 0 && !isLoading && (
+      {filteredProblems.length === 0 && (
         <div className="text-center py-12">
           <Filter className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">

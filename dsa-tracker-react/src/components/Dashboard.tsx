@@ -27,6 +27,14 @@ const Dashboard = () => {
     return `${Math.floor(diff / 86400)}d ago`
   }
 
+  // Utility function for truncating text by words
+  function truncateWords(str: string, numWords: number): string {
+    if (!str) return '';
+    const words = str.split(' ');
+    if (words.length <= numWords) return str;
+    return words.slice(0, numWords).join(' ') + '...';
+  }
+
   // Use real LeetCode stats for dashboard analytics
   const stats = userData ? [
     {
@@ -67,7 +75,7 @@ const Dashboard = () => {
   const recentSubmissions = userData?.recentAcSubmissions || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pt-6 pl-4 pr-4 pb-6">
       {/* LeetCode Connection Status */}
       {!isAuthenticated ? (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-4 rounded-lg shadow-sm">
@@ -88,23 +96,23 @@ const Dashboard = () => {
       ) : null}
       
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl text-white p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome back{userData ? `, ${userData.profile.realName || userData.profile.username}` : ''}! 👋
+      <div className="bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl text-white p-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold mb-1 truncate" title={`Welcome back${userData ? `, ${userData.profile.realName || userData.profile.username}` : ''}! 👋`}>
+              Welcome back{userData ? `, ${truncateWords(userData.profile.realName || userData.profile.username, 3)}` : ''}! 👋
             </h1>
-            <p className="text-primary-100">
+            <p className="text-primary-100 break-words text-sm">
               Ready to tackle some algorithms? You're doing great!
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">
+          <div className="text-right flex-shrink-0">
+            <div className="text-xl font-bold">
               {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
-            <div className="text-primary-200">
+            <div className="text-primary-200 whitespace-nowrap text-sm">
               {currentTime.toLocaleDateString([], { 
-                weekday: 'long', 
+                weekday: 'short', 
                 month: 'short', 
                 day: 'numeric' 
               })}
@@ -129,25 +137,27 @@ const Dashboard = () => {
           <>
             {/* Stats Grid */}
             {isAuthenticated && userData ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 {stats.map((stat, index) => {
                   const Icon = stat.icon;
                   return (
-                    <div key={index} className="card">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                            {stat.title}
-                          </p>
-                          <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {stat.value}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {stat.change}
-                          </p>
-                        </div>
-                        <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                          <Icon className={`w-6 h-6 ${stat.color}`} />
+                    <div key={index} className="card p-4">
+                      <div className="flex flex-col justify-between min-h-[90px]">
+                        <div className="flex items-start justify-between min-w-0">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 truncate" title={stat.title}>
+                              {stat.title}
+                            </p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white break-words truncate" title={stat.value}>
+                              {stat.value}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 break-words truncate" title={stat.change}>
+                              {stat.change}
+                            </p>
+                          </div>
+                          <div className={`p-2 rounded-lg ml-2 flex-shrink-0 ${stat.bgColor}`}>
+                            <Icon className={`w-5 h-5 ${stat.color}`} />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -167,25 +177,46 @@ const Dashboard = () => {
               <div>
                 <h4 className="font-semibold mb-2">Recent Solved Problems</h4>
                 <div className="space-y-2">
-                  {recentSubmissions.slice(0, 5).map((sub: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <a 
-                        href={`https://leetcode.com/problems/${sub.titleSlug}/`} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="font-medium text-blue-700 dark:text-blue-300 hover:underline"
-                      >
-                        {sub.title}
-                      </a>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(sub.timestamp)}</span>
-                      <span className="text-xs font-semibold text-green-600">Solved</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{sub.lang}</span>
+                  {recentSubmissions.slice(0, 3).map((sub: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-x-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      {/* Problem Name - Takes most space */}
+                      <div className="flex-1 min-w-0">
+                        <a 
+                          href={`https://leetcode.com/problems/${sub.titleSlug}/`} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="font-medium text-blue-700 dark:text-blue-300 hover:underline block truncate text-sm"
+                          title={sub.title}
+                        >
+                          {truncateWords(sub.title, 8)}
+                        </a>
+                      </div>
+                      
+                      {/* Status Badge - More prominent */}
+                      <div className="flex items-center">
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/40 rounded-full border border-green-200 dark:border-green-800">
+                          ✓ AC
+                        </span>
+                      </div>
+                      
+                      {/* Time and Language - Compact right side */}
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="whitespace-nowrap" title={timeAgo(sub.timestamp)}>
+                          {timeAgo(sub.timestamp)}
+                        </span>
+                        <span className="px-1 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-center min-w-[35px]" title={sub.lang}>
+                          {sub.lang}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
                 
-                <div className="mt-4 text-center">
-                  <Link to="/leetcode" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                <div className="mt-3 text-center">
+                  <Link to="/leetcode" className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm">
                     View all activity →
                   </Link>
                 </div>
@@ -197,22 +228,22 @@ const Dashboard = () => {
 
       {/* Progress Section */}
       <div className="card">
-        <h3 className="text-lg font-semibold mb-4">Current Study Iteration</h3>
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+        <h3 className="text-lg font-semibold mb-3">Current Study Iteration</h3>
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
+            <div className="flex-1 min-w-0">
+              <h4 className="text-lg font-bold text-gray-900 dark:text-white truncate" title="🌳 Tree Algorithms">
                 🌳 Tree Algorithms
               </h4>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-400 truncate" title="Iteration 7 of 20 • 35% Complete">
                 Iteration 7 of 20 • 35% Complete
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            <div className="text-right flex-shrink-0">
+              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
                 4/12
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                 Problems solved
               </p>
             </div>
@@ -220,14 +251,14 @@ const Dashboard = () => {
           
           <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-blue-600 dark:bg-blue-500 rounded-full" 
+              className="h-full bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-300" 
               style={{ width: '33%' }}
             ></div>
           </div>
           
-          <div className="mt-4 flex justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Started 2 days ago</span>
-            <span className="text-gray-600 dark:text-gray-400">Est. completion: Today</span>
+          <div className="mt-3 flex justify-between text-xs">
+            <span className="text-gray-600 dark:text-gray-400 truncate">Started 2 days ago</span>
+            <span className="text-gray-600 dark:text-gray-400 truncate">Est. completion: Today</span>
           </div>
         </div>
       </div>

@@ -11,9 +11,12 @@ import StudyPlan from './components/StudyPlan.tsx'
 import Analytics from './components/Analytics.tsx'
 import CodeEditor from './components/CodeEditor.tsx'
 import Settings from './components/Settings.tsx'
+import Calendar from './components/Calendar.tsx'
+import Comparison from './components/Comparison.tsx'
 import Navigation from './components/Navigation'
 import LeetCodeLogin from './components/LeetCodeLogin'
 import LeetCodeDashboard from './components/LeetCodeDashboard'
+import UserProfile from './components/UserProfile'
 
 // Types
 export interface Problem {
@@ -42,6 +45,7 @@ export interface TheoryContent {
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   // Theme management
   useEffect(() => {
@@ -66,20 +70,22 @@ function App() {
         <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300`}>
           {/* Header */}
           <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between px-6 py-4">
-              <div className="flex items-center space-x-4">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-1 sm:py-2">
+              <div className="flex items-center space-x-2 sm:space-x-4">
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
                 </button>
-                <h1 className="text-2xl font-bold text-gradient">
-                  🧠 DSA Mastery Hub
+                <h1 className="text-lg sm:text-2xl font-bold text-gradient">
+                  🧠 <span className="hidden sm:inline">DSA Mastery Hub</span>
+                  <span className="sm:hidden">DSA Hub</span>
                 </h1>
               </div>
               
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                <UserProfile />
                 <button
                   onClick={toggleTheme}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -92,11 +98,21 @@ function App() {
 
           <div className="flex">
             {/* Sidebar Navigation */}
-            <Navigation isOpen={isSidebarOpen} />
+            <Navigation 
+              isOpen={isSidebarOpen} 
+              isCollapsed={isSidebarCollapsed}
+              onCollapse={(collapsed) => setIsSidebarCollapsed(collapsed)}
+            />
             
             {/* Main Content */}
-            <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
-              <div className="p-6">
+            <main className={`flex-1 transition-all duration-300 ${
+              isSidebarOpen 
+                ? isSidebarCollapsed 
+                  ? 'ml-0 lg:ml-16' 
+                  : 'ml-0 lg:ml-64'
+                : 'ml-0'
+            }`}>
+              <div className="p-4 sm:p-6">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
@@ -105,6 +121,8 @@ function App() {
                   <Route path="/theory/:category" element={<TheoryViewer />} />
                   <Route path="/study-plan" element={<StudyPlan />} />
                   <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/comparison" element={<Comparison />} />
+                  <Route path="/calendar" element={<Calendar />} />
                   <Route path="/code-editor" element={<CodeEditor />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/leetcode" element={<LeetCodeDashboard />} />

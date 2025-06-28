@@ -23,23 +23,22 @@ const TheoryViewer = () => {
 
   // Load theory files using ContentService
   useEffect(() => {
+    let ignore = false
     const loadContent = async () => {
       try {
         const files = await ContentService.loadTheoryContent()
-        setTheoryFiles(files)
-
-        // Select first file if available
-        if (files.length > 0) {
-          setSelectedFile(files[0])
+        if (!ignore) {
+          setTheoryFiles(files)
+          if (files.length > 0) setSelectedFile(files[0])
         }
       } catch (error) {
         console.error('Failed to load theory content:', error)
       } finally {
-        setLoading(false)
+        if (!ignore) setLoading(false)
       }
     }
-
     loadContent()
+    return () => { ignore = true }
   }, [])
 
   const filteredFiles = theoryFiles.filter(file =>
@@ -49,10 +48,7 @@ const TheoryViewer = () => {
 
   const handleFileSelect = async (filePath: string) => {
     // End current session if exists
-    if (currentSessionId) {
-      progressService.endStudySession(currentSessionId)
-    }
-
+    if (currentSessionId) progressService.endStudySession(currentSessionId)
     setLoadingFile(true)
     setSelectedFilePath(filePath)
     setSelectedFile(null) // Clear topic-based selection
@@ -60,9 +56,15 @@ const TheoryViewer = () => {
     try {
       const response = await fetch(`/api/content/${encodeURIComponent(filePath)}`)
       if (response.ok) {
-        const data = await response.json()
+        let data
+        try {
+          data = await response.json()
+        } catch {
+          setFileContent('Failed to parse file content')
+          setLoadingFile(false)
+          return
+        }
         setFileContent(data.content || '')
-
         // Start new study session
         const materialId = filePath.replace(/[\/\\]/g, '_').replace('.md', '')
         const sessionId = progressService.startStudySession(materialId)
@@ -83,11 +85,9 @@ const TheoryViewer = () => {
     setTheoryFiles(prev => prev.map(file =>
       file.id === fileId ? { ...file, isRead: true } : file
     ))
-
     // Also mark in progress service
     const materialId = selectedFilePath ? selectedFilePath.replace(/[\/\\]/g, '_').replace('.md', '') : fileId
     progressService.markAsCompleted(materialId)
-
     // End current session
     if (currentSessionId) {
       progressService.endStudySession(currentSessionId)
@@ -98,16 +98,10 @@ const TheoryViewer = () => {
 
   // Handle topic selection (existing materials)
   const handleTopicSelect = (file: TheoryContent) => {
-    // End current session if exists
-    if (currentSessionId) {
-      progressService.endStudySession(currentSessionId)
-    }
-
+    if (currentSessionId) progressService.endStudySession(currentSessionId)
     setSelectedFile(file)
     setSelectedFilePath('')
     setFileContent('')
-
-    // Start new study session for topic
     const sessionId = progressService.startStudySession(file.id)
     setCurrentSessionId(sessionId)
     setStudyStartTime(new Date())
@@ -131,10 +125,9 @@ const TheoryViewer = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] space-x-6">
+    <div className="flex h-[calc(100vh-8rem)]">
       {/* Sidebar */}
       <div className={`${isSidebarCollapsed ? 'w-0 opacity-0 pointer-events-none overflow-hidden' : 'w-80'} card h-fit max-h-full flex flex-col transition-all duration-300`}>
-        {/* Collapsed state - show only expand button */}
         {isSidebarCollapsed ? (
           <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-10">
             <button
@@ -152,7 +145,6 @@ const TheoryViewer = () => {
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                   Theory & Concepts
                 </h2>
-
                 <div className="flex items-center space-x-2 ml-auto">
                   {/* Search Icon/Bar */}
                   <div className="flex items-center">
@@ -180,7 +172,6 @@ const TheoryViewer = () => {
                       </div>
                     )}
                   </div>
-
                   {/* Collapse/Expand Button */}
                   <button
                     onClick={() => setIsSidebarCollapsed(true)}
@@ -191,7 +182,6 @@ const TheoryViewer = () => {
                   </button>
                 </div>
               </div>
-
               {/* View Mode Tabs */}
               <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                 <button
@@ -216,10 +206,8 @@ const TheoryViewer = () => {
                 </button>
               </div>
             </div>
-
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              {/* Content based on view mode */}
               {viewMode === 'topics' ? (
                 <div className="p-4 space-y-2">
                   {filteredFiles.map(file => (
@@ -260,9 +248,8 @@ const TheoryViewer = () => {
           </>
         )}
       </div>
-
       {/* Main Content */}
-      <div className={`flex-1 card ${isSidebarCollapsed ? 'ml-0' : 'ml-6'}`}>
+      <div className="flex-1 card transition-all duration-300">
         {(selectedFile || selectedFilePath) ? (
           <div className="h-full overflow-y-auto">
             {/* Header */}
@@ -293,7 +280,6 @@ const TheoryViewer = () => {
                     )}
                   </div>
                 </div>
-
                 <div className="flex items-center space-x-2">
                   {selectedFile && !selectedFile.isRead && (
                     <button
@@ -309,7 +295,6 @@ const TheoryViewer = () => {
                 </div>
               </div>
             </div>
-
             {/* Content */}
             {loadingFile ? (
               <div className="flex items-center justify-center py-8">
@@ -341,7 +326,6 @@ const TheoryViewer = () => {
                 </ReactMarkdown>
               </div>
             )}
-
             {/* Navigation */}
             <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
               <button className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-primary-500">

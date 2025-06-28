@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Calendar, CheckCircle, Clock, Target, TrendingUp, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { CheckCircle, Clock, Target, TrendingUp, FileText, BookOpen, Award, BarChart3, Star } from 'lucide-react'
+import { progressService, type StudyProgress, type ProgressStats } from '../services/ProgressService'
+import { useNavigate } from 'react-router-dom'
 
 interface StudyIteration {
   id: number
@@ -13,535 +14,473 @@ interface StudyIteration {
   emoji: string
   folder: string
   files: string[]
-  completedFiles: string[]
-  scheduledDate?: Date
 }
 
 const StudyPlan = () => {
-  const [selectedIteration, setSelectedIteration] = useState<number>(7)
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar')
+  const [selectedIteration, setSelectedIteration] = useState<number | null>(null)
+  const [studyProgress, setStudyProgress] = useState<StudyProgress[]>([])
+  const [progressStats, setProgressStats] = useState<ProgressStats | null>(null)
+  const [animatedStats, setAnimatedStats] = useState<ProgressStats | null>(null)
+  const navigate = useNavigate()
+  const rafRef = useRef<number | null>(null)
 
+  // Define iterations array first so it can be used in useEffect
   const iterations: StudyIteration[] = [
-    { 
-      id: 1, 
-      title: 'Two Pointers', 
-      description: 'Master efficient array traversal techniques', 
-      duration: '4 hours', 
-      problems: 8, 
-      status: 'completed', 
-      progress: 100, 
-      emoji: '👆',
-      folder: '01_Two_Pointers',
-      files: ['THEORY_COMPLETE.md', 'PROBLEMS_SOLUTIONS.md'],
-      completedFiles: ['THEORY_COMPLETE.md', 'PROBLEMS_SOLUTIONS.md'],
-      scheduledDate: new Date('2025-06-15')
+    {
+      id: 1,
+      title: "Two Pointers Fundamentals",
+      description: "Master the two pointers technique for array and string problems",
+      duration: "1-2 weeks",
+      problems: 15,
+      status: "completed",
+      progress: 100,
+      emoji: "👆",
+      folder: "01_Two_Pointers",
+      files: ["THEORY_COMPLETE.md", "PROBLEMS_SOLUTIONS.md"]
     },
-    { 
-      id: 2, 
-      title: 'Sliding Window', 
-      description: 'Optimize substring and subarray problems', 
-      duration: '4 hours', 
-      problems: 10, 
-      status: 'completed', 
-      progress: 100, 
-      emoji: '🪟',
-      folder: '02_Sliding_Window',
-      files: ['THEORY_COMPLETE.md'],
-      completedFiles: ['THEORY_COMPLETE.md'],
-      scheduledDate: new Date('2025-06-16')
+    {
+      id: 2,
+      title: "Sliding Window Mastery", 
+      description: "Learn sliding window patterns for substring and subarray problems",
+      duration: "1-2 weeks",
+      problems: 20,
+      status: "completed",
+      progress: 100,
+      emoji: "🪟",
+      folder: "02_Sliding_Window",
+      files: ["THEORY_COMPLETE.md"]
     },
-    { 
-      id: 3, 
-      title: 'Binary Search', 
-      description: 'Divide and conquer sorted arrays', 
-      duration: '3 hours', 
-      problems: 8, 
-      status: 'completed', 
-      progress: 100, 
-      emoji: '🔍',
-      folder: '03_Binary_Search',
-      files: ['PRACTICE_SCHEDULE.md', 'PROBLEMS_SOLUTIONS.md', 'TEMPLATE_LIBRARY.md', 'THEORY_COMPLETE.md'],
-      completedFiles: ['THEORY_COMPLETE.md', 'PROBLEMS_SOLUTIONS.md', 'TEMPLATE_LIBRARY.md'],
-      scheduledDate: new Date('2025-06-17')
+    {
+      id: 3,
+      title: "Binary Search Deep Dive",
+      description: "Master binary search and its variations",
+      duration: "2-3 weeks",
+      problems: 25,
+      status: "completed",
+      progress: 100,
+      emoji: "🔍",
+      folder: "03_Binary_Search",
+      files: ["THEORY_COMPLETE.md", "TEMPLATE_LIBRARY.md", "PROBLEMS_SOLUTIONS.md", "PRACTICE_SCHEDULE.md"]
     },
-    { 
-      id: 4, 
-      title: 'Dynamic Programming', 
-      description: 'Sequential decision optimization', 
-      duration: '6 hours', 
-      problems: 15, 
-      status: 'completed', 
-      progress: 100, 
-      emoji: '🧮',
-      folder: '04_Dynamic_Programming',
-      files: ['THEORY_COMPLETE.md'],
-      completedFiles: ['THEORY_COMPLETE.md'],
-      scheduledDate: new Date('2025-06-18')
+    {
+      id: 4,
+      title: "Dynamic Programming Foundation",
+      description: "Build strong DP fundamentals and problem-solving patterns",
+      duration: "3-4 weeks",
+      problems: 30,
+      status: "completed",
+      progress: 85,
+      emoji: "🧮",
+      folder: "04_Dynamic_Programming",
+      files: ["THEORY_COMPLETE.md"]
     },
-    { 
-      id: 5, 
-      title: 'Greedy Algorithms', 
-      description: 'Optimal local choices', 
-      duration: '4 hours', 
-      problems: 10, 
-      status: 'completed', 
-      progress: 100, 
-      emoji: '💡',
-      folder: '05_Greedy_Algorithms',
-      files: ['PRACTICE_SCHEDULE.md', 'PROBLEMS_SOLUTIONS.md', 'THEORY_COMPLETE.md'],
-      completedFiles: ['THEORY_COMPLETE.md', 'PROBLEMS_SOLUTIONS.md'],
-      scheduledDate: new Date('2025-06-19')
+    {
+      id: 5,
+      title: "Greedy Algorithms",
+      description: "Learn greedy approach and optimization techniques",
+      duration: "2-3 weeks",
+      problems: 20,
+      status: "completed",
+      progress: 100,
+      emoji: "💰",
+      folder: "05_Greedy_Algorithms",
+      files: ["THEORY_COMPLETE.md", "PROBLEMS_SOLUTIONS.md", "PRACTICE_SCHEDULE.md"]
     },
-    { 
-      id: 6, 
-      title: 'Backtracking', 
-      description: 'Recursive solution exploration', 
-      duration: '5 hours', 
-      problems: 12, 
-      status: 'completed', 
-      progress: 100, 
-      emoji: '🔄',
-      folder: '06_Backtracking',
-      files: ['PRACTICE_SCHEDULE.md', 'PROBLEMS_SOLUTIONS.md', 'TEMPLATE_LIBRARY.md', 'THEORY_COMPLETE.md'],
-      completedFiles: ['THEORY_COMPLETE.md', 'PROBLEMS_SOLUTIONS.md', 'TEMPLATE_LIBRARY.md'],
-      scheduledDate: new Date('2025-06-20')
+    {
+      id: 6,
+      title: "Backtracking Adventures",
+      description: "Master backtracking for combinatorial problems",
+      duration: "2-3 weeks",
+      problems: 18,
+      status: "completed",
+      progress: 100,
+      emoji: "🔄",
+      folder: "06_Backtracking",
+      files: ["THEORY_COMPLETE.md", "TEMPLATE_LIBRARY.md", "PROBLEMS_SOLUTIONS.md", "PRACTICE_SCHEDULE.md"]
     },
-    { 
-      id: 7, 
-      title: 'Tree Algorithms', 
-      description: 'Binary trees, BST, and traversals', 
-      duration: '4 hours', 
-      problems: 12, 
-      status: 'current', 
-      progress: 60, 
-      emoji: '🌳',
-      folder: '08_Tree_Algorithms',
-      files: ['ITERATION_7_COMPLETE_THEORY.md', 'PRACTICE_SCHEDULE.md', 'PROBLEMS_SOLUTIONS.md', 'TEMPLATE_LIBRARY.md', 'THEORY_COMPLETE.md'],
-      completedFiles: ['THEORY_COMPLETE.md', 'ITERATION_7_COMPLETE_THEORY.md', 'TEMPLATE_LIBRARY.md'],
-      scheduledDate: new Date('2025-06-25')
+    {
+      id: 7,
+      title: "Graph Algorithms",
+      description: "Comprehensive graph theory and algorithms",
+      duration: "3-4 weeks",
+      problems: 35,
+      status: "completed",
+      progress: 100,
+      emoji: "🕸️",
+      folder: "07_Graph_Algorithms",
+      files: ["THEORY_COMPLETE.md", "TEMPLATE_LIBRARY.md", "PROBLEMS_SOLUTIONS.md", "PRACTICE_SCHEDULE.md"]
     },
-    { 
-      id: 8, 
-      title: 'Graph Algorithms', 
-      description: 'BFS, DFS, and graph traversal', 
-      duration: '6 hours', 
-      problems: 14, 
-      status: 'upcoming', 
-      progress: 0, 
-      emoji: '📈',
-      folder: '07_Graph_Algorithms',
-      files: ['PRACTICE_SCHEDULE.md', 'PROBLEMS_SOLUTIONS.md', 'TEMPLATE_LIBRARY.md', 'THEORY_COMPLETE.md'],
-      completedFiles: [],
-      scheduledDate: new Date('2025-06-28')
+    {
+      id: 8,
+      title: "Tree Algorithms",
+      description: "Binary trees, BST, and advanced tree structures",
+      duration: "3-4 weeks",
+      problems: 40,
+      status: "current",
+      progress: 75,
+      emoji: "🌳",
+      folder: "08_Tree_Algorithms",
+      files: ["THEORY_COMPLETE.md", "TEMPLATE_LIBRARY.md", "PROBLEMS_SOLUTIONS.md", "PRACTICE_SCHEDULE.md", "ITERATION_7_COMPLETE_THEORY.md"]
     },
-    { 
-      id: 9, 
-      title: 'Stack & Queue', 
-      description: 'LIFO/FIFO data structure mastery', 
-      duration: '4 hours', 
-      problems: 12, 
-      status: 'completed', 
-      progress: 100, 
-      emoji: '📚',
-      folder: '09_Stack_Queue',
-      files: ['PROBLEMS_WITH_SOLUTIONS.md', 'THEORY_COMPLETE.md'],
-      completedFiles: ['THEORY_COMPLETE.md', 'PROBLEMS_WITH_SOLUTIONS.md'],
-      scheduledDate: new Date('2025-06-21')
+    {
+      id: 9,
+      title: "Stack & Queue Mastery",
+      description: "Master stack and queue data structures and applications",
+      duration: "2-3 weeks",
+      problems: 25,
+      status: "completed",
+      progress: 100,
+      emoji: "📚",
+      folder: "09_Stack_Queue",
+      files: ["THEORY_COMPLETE.md", "PROBLEMS_WITH_SOLUTIONS.md"]
     },
-    { 
-      id: 10, 
-      title: 'Heap/Priority Queue', 
-      description: 'Efficient min/max operations', 
-      duration: '5 hours', 
-      problems: 10, 
-      status: 'completed', 
-      progress: 100, 
-      emoji: '⛰️',
-      folder: '10_Heap_Priority_Queue',
-      files: ['PROBLEMS_WITH_SOLUTIONS.md', 'THEORY_COMPLETE.md'],
-      completedFiles: ['THEORY_COMPLETE.md', 'PROBLEMS_WITH_SOLUTIONS.md'],
-      scheduledDate: new Date('2025-06-22')
-    },
+    {
+      id: 10,
+      title: "Heap & Priority Queue",
+      description: "Advanced heap operations and priority queue applications",
+      duration: "2-3 weeks",
+      problems: 22,
+      status: "completed",
+      progress: 100,
+      emoji: "⛰️",
+      folder: "10_Heap_Priority_Queue",
+      files: ["THEORY_COMPLETE.md", "PROBLEMS_WITH_SOLUTIONS.md"]
+    }
   ]
 
-  const currentIteration = iterations.find(iter => iter.status === 'current')
+  // Animate progress stats (robust, prevents memleak on fast route changes)
+  useEffect(() => {
+    if (!progressStats) return
+    if (
+      !animatedStats ||
+      animatedStats.completedMaterials !== progressStats.completedMaterials ||
+      animatedStats.totalMaterials !== progressStats.totalMaterials ||
+      animatedStats.totalTimeSpent !== progressStats.totalTimeSpent ||
+      animatedStats.currentStreak !== progressStats.currentStreak
+    ) {
+      const duration = 500
+      const start = { ...animatedStats ?? progressStats }
+      const end = { ...progressStats }
+      const startTime = performance.now()
+
+      function animate(now: number) {
+        const t = Math.min(1, (now - startTime) / duration)
+        setAnimatedStats({
+          completedMaterials: Math.round(start.completedMaterials + t * (end.completedMaterials - start.completedMaterials)),
+          totalMaterials: end.totalMaterials,
+          totalTimeSpent: start.totalTimeSpent + t * (end.totalTimeSpent - start.totalTimeSpent),
+          currentStreak: Math.round(start.currentStreak + t * (end.currentStreak - start.currentStreak)),
+        })
+        if (t < 1) rafRef.current = requestAnimationFrame(animate)
+      }
+      rafRef.current = requestAnimationFrame(animate)
+      return () => {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      }
+    }
+    // eslint-disable-next-line
+  }, [progressStats])
+
+  useEffect(() => {
+    loadProgressData()
+    
+    // Auto-select the current iteration
+    const currentIteration = iterations.find(iter => iter.status === 'current')
+    if (currentIteration) {
+      setSelectedIteration(currentIteration.id)
+    } else {
+      // If no current iteration, select the first upcoming or the last one
+      const upcomingIteration = iterations.find(iter => iter.status === 'upcoming')
+      setSelectedIteration(upcomingIteration?.id || iterations[iterations.length - 1]?.id || null)
+    }
+    // eslint-disable-next-line
+  }, [])
+
+  const loadProgressData = () => {
+    const progress = progressService.getProgress()
+    const stats = progressService.getStats()
+    setStudyProgress(progress)
+    setProgressStats(stats)
+    setAnimatedStats(stats)
+  }
+
+
+
   const completedIterations = iterations.filter(iter => iter.status === 'completed').length
   const totalIterations = iterations.length
   const overallProgress = (completedIterations / totalIterations) * 100
+
+  const isFileCompleted = (folder: string, filename: string): boolean => {
+    const materialId = `${folder.toLowerCase().replace(/\s+/g, '_')}_${filename.replace('.md', '').toLowerCase()}`
+    const progress = studyProgress.find(p => p.id === materialId)
+    return progress?.isCompleted || false
+  }
+
+  const openFile = (folder: string, filename: string) => {
+    navigate('/theory', {
+      state: { openFile: `${folder}/${filename}`, folder }
+    })
+  }
+
+  const toggleFileCompletion = (folder: string, filename: string) => {
+    const materialId = `${folder.toLowerCase().replace(/\s+/g, '_')}_${filename.replace('.md', '').toLowerCase()}`
+    const progress = studyProgress.find(p => p.id === materialId)
+    if (progress?.isCompleted) {
+      progressService.markAsIncomplete(materialId)
+    } else {
+      progressService.markAsCompleted(materialId, `Completed reading ${filename}`)
+    }
+    loadProgressData()
+  }
+
+  const markAsRead = (folder: string, filename: string) => {
+    const materialId = `${folder.toLowerCase().replace(/\s+/g, '_')}_${filename.replace('.md', '').toLowerCase()}`
+    const sessionId = progressService.startStudySession(materialId)
+    setTimeout(() => {
+      progressService.endStudySession(sessionId)
+      progressService.markAsCompleted(materialId, `Read and completed ${filename}`)
+      loadProgressData()
+    }, 1000)
+    loadProgressData()
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
         return 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300'
       case 'current':
-        return 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300'
+        return 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300 animate-pulse'
       default:
         return 'bg-gray-50 border-gray-200 text-gray-800 dark:bg-gray-900/20 dark:border-gray-700 dark:text-gray-300'
     }
   }
 
-  const toggleFileCompletion = (iterationId: number, fileName: string) => {
-    // In a real app, this would update the backend
-    console.log(`Toggling completion for ${fileName} in iteration ${iterationId}`)
-  }
-
-  // Calendar functionality
-  const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-  }
-
-  const getFirstDayOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
-  }
-
-  const getIterationForDate = (date: Date) => {
-    return iterations.find(iter => 
-      iter.scheduledDate && 
-      iter.scheduledDate.toDateString() === date.toDateString()
-    )
-  }
-
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(currentDate)
-    const firstDay = getFirstDayOfMonth(currentDate)
-    const days = []
-
-    // Empty cells for days before the first day of the month
-    for (let i = 0; i < firstDay; i++) {
-      days.push(
-        <div key={`empty-${i}`} className="h-20 border border-gray-200 dark:border-gray-700"></div>
-      )
-    }
-
-    // Days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
-      const iteration = getIterationForDate(date)
-      const isToday = date.toDateString() === new Date().toDateString()
-
-      days.push(
-        <div
-          key={day}
-          className={`h-20 border border-gray-200 dark:border-gray-700 p-1 ${
-            isToday ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'
-          }`}
-        >
-          <div className={`text-sm ${isToday ? 'font-bold text-blue-600' : 'text-gray-900 dark:text-white'}`}>
-            {day}
-          </div>
-          {iteration && (
-            <div className={`mt-1 p-1 rounded text-xs truncate ${
-              iteration.status === 'completed' 
-                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                : iteration.status === 'current'
-                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
-            }`}>
-              <div className="flex items-center space-x-1">
-                <span>{iteration.emoji}</span>
-                {iteration.status === 'completed' && <CheckCircle className="w-3 h-3" />}
-              </div>
-              <div className="truncate">{iteration.title}</div>
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    return days
-  }
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate)
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1)
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1)
-    }
-    setCurrentDate(newDate)
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white p-6">
-        <h1 className="text-3xl font-bold mb-2">Study Plan & Schedule</h1>
-        <p className="text-purple-100 mb-4">
-          Structured learning path with real calendar planning and progress tracking
+      <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-yellow-500 rounded-xl text-white p-6 shadow-lg">
+        <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+          <Star className="w-7 h-7 text-yellow-300 animate-bounce" />
+          DSA Study Plan
+        </h1>
+        <p className="text-purple-50 mb-4 text-lg font-medium">
+          🚀 Structured learning path with <b>real progress tracking</b>
         </p>
-        
-        <div className="flex items-center space-x-6 text-sm">
-          <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-5 text-sm">
+          <div className="flex items-center gap-2">
             <Target className="w-4 h-4" />
-            <span>Day {completedIterations + 1} of {totalIterations}</span>
+            <span>Iteration {completedIterations + 1} of {totalIterations}</span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             <span>{overallProgress.toFixed(0)}% Complete</span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
-            <span>~60 hours total</span>
+            <span>Real-time tracking</span>
           </div>
         </div>
       </div>
 
-      {/* View Mode Toggle */}
-      <div className="flex items-center justify-between">
-        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('calendar')}
-            className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              viewMode === 'calendar'
-                ? 'bg-white dark:bg-gray-600 text-primary-700 dark:text-primary-300 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Calendar View</span>
-          </button>
-          <button
-            onClick={() => setViewMode('timeline')}
-            className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              viewMode === 'timeline'
-                ? 'bg-white dark:bg-gray-600 text-primary-700 dark:text-primary-300 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <Target className="w-4 h-4" />
-            <span>Timeline View</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Calendar View */}
-      {viewMode === 'calendar' && (
-        <div className="card">
-          {/* Calendar Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-              {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-            </h3>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => navigateMonth('prev')}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-              >
-                Today
-              </button>
-              <button
-                onClick={() => navigateMonth('next')}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+      {/* Progress Summary */}
+      {animatedStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Materials Completed</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400 transition-all duration-200">
+                  {animatedStats.completedMaterials}/{animatedStats.totalMaterials}
+                </p>
+              </div>
+              <BookOpen className="w-8 h-8 text-green-500" />
             </div>
           </div>
-
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            {/* Day Headers */}
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="h-10 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex items-center justify-center text-sm font-medium text-gray-600 dark:text-gray-400">
-                {day}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Study Time</p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 transition-all duration-200">
+                  {(animatedStats.totalTimeSpent / 60).toFixed(1)}h
+                </p>
               </div>
-            ))}
-            
-            {/* Calendar Days */}
-            {renderCalendar()}
+              <Clock className="w-8 h-8 text-blue-500" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Study Streak</p>
+                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 transition-all duration-200">
+                  {animatedStats.currentStreak} days
+                </p>
+              </div>
+              <Award className="w-8 h-8 text-purple-500" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Progress</p>
+                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 transition-all duration-200">
+                  {((animatedStats.completedMaterials / animatedStats.totalMaterials) * 100).toFixed(0)}%
+                </p>
+              </div>
+              <BarChart3 className="w-8 h-8 text-orange-500" />
+            </div>
           </div>
         </div>
       )}
 
-      {/* Timeline View */}
-      {viewMode === 'timeline' && (
+      <div className="grid grid-cols-1 gap-6">
+        {/* Study Iterations */}
         <div className="card">
-          <h3 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Study Timeline</h3>
-          
+          <h3 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Study Iterations</h3>
           <div className="space-y-4">
             {iterations.map((iteration) => (
               <div
                 key={iteration.id}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                  selectedIteration === iteration.id
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 relative overflow-hidden
+                  ${selectedIteration === iteration.id
                     ? 'ring-2 ring-primary-500 border-primary-200 dark:border-primary-800'
                     : getStatusColor(iteration.status)
-                }`}
+                  }`}
                 onClick={() => setSelectedIteration(iteration.id)}
+                tabIndex={0}
+                aria-label={`${iteration.title} - ${iteration.status}`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
+                {/* Current iteration glow */}
+                {iteration.status === 'current' && (
+                  <span className="absolute inset-0 pointer-events-none z-0 rounded-lg animate-pulse bg-blue-100/40 dark:bg-blue-900/20" />
+                )}
+                <div className="flex items-start justify-between relative z-10">
+                  <div className="flex items-start space-x-4 flex-1">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 shadow">
                       {iteration.status === 'completed' ? (
                         <CheckCircle className="w-5 h-5 text-green-500" />
                       ) : (
                         <span className="text-lg">{iteration.emoji}</span>
                       )}
                     </div>
-                    
-                    <div>
-                      <div className="flex items-center space-x-3">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
                         <h4 className="font-semibold text-gray-900 dark:text-white">
                           {iteration.title}
                         </h4>
-                        <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                          iteration.status === 'completed' 
+                        <span className={`px-2 py-1 text-xs rounded-full font-medium 
+                          ${
+                            iteration.status === 'completed'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                             : iteration.status === 'current'
                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
-                        }`}>
+                          }`}>
                           {iteration.status}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                         {iteration.description}
                       </p>
-                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      {/* Files list */}
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">Study Materials:</h5>
+                        <div className="grid grid-cols-1 gap-2">
+                          {iteration.files.map((file, fileIndex) => {
+                            const isCompleted = isFileCompleted(iteration.folder, file)
+                            return (
+                              <div key={fileIndex} className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg group focus-within:ring-2 focus-within:ring-blue-400">
+                                <button
+                                  onClick={e => { e.stopPropagation(); toggleFileCompletion(iteration.folder, file) }}
+                                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors focus:ring-2 focus:ring-green-400
+                                    ${isCompleted
+                                      ? 'bg-green-500 border-green-500 text-white'
+                                      : 'border-gray-300 dark:border-gray-600 hover:border-green-500'
+                                    }`}
+                                  title={isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
+                                  aria-label={isCompleted ? `Mark ${file} as incomplete` : `Mark ${file} as complete`}
+                                >
+                                  {isCompleted && <CheckCircle className="w-4 h-4" />}
+                                </button>
+                                <button
+                                  onClick={e => { e.stopPropagation(); openFile(iteration.folder, file) }}
+                                  className="flex items-center space-x-2 flex-1 text-left hover:text-blue-600 dark:hover:text-blue-400 transition-colors focus:underline"
+                                  aria-label={`Open file ${file}`}
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  <span className="text-sm">{file.replace('.md', '').replace(/_/g, ' ')}</span>
+                                  {!isCompleted && (
+                                    <span className="ml-2 px-2 py-0.5 rounded-full bg-pink-200 text-pink-800 text-xs font-bold animate-pulse">
+                                      NEW
+                                    </span>
+                                  )}
+                                </button>
+                                {!isCompleted && (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); markAsRead(iteration.folder, file) }}
+                                    className="px-3 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors focus:ring-2 focus:ring-blue-400"
+                                    title="Mark as read"
+                                    aria-label={`Mark ${file} as read`}
+                                  >
+                                    Mark as Read
+                                  </button>
+                                )}
+                                {isCompleted && (
+                                  <span className="text-xs text-green-600 dark:text-green-400 font-medium" aria-label="Completed">
+                                    ✓ Completed
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4 mt-3 text-xs text-gray-500 dark:text-gray-400">
                         <span>⏱️ {iteration.duration}</span>
                         <span>📝 {iteration.problems} problems</span>
-                        <span>📂 {iteration.folder}</span>
-                        {iteration.scheduledDate && (
-                          <span>📅 {iteration.scheduledDate.toLocaleDateString()}</span>
-                        )}
+                        <span>📊 {iteration.progress}% complete</span>
                       </div>
                     </div>
                   </div>
-
-                  <div className="text-right">
-                    <Link
-                      to={`/theory`}
-                      state={{ folder: iteration.folder }}
-                      className="btn-primary text-sm"
-                    >
-                      Study Now
-                    </Link>
+                  <div className="text-right ml-4">
+                    {iteration.status === 'current' && (
+                      <button
+                        onClick={e => { e.stopPropagation(); navigate('/theory') }}
+                        className="btn-primary text-sm focus:underline"
+                        aria-label="Continue Study"
+                      >
+                        Continue Study
+                      </button>
+                    )}
+                    {iteration.status === 'upcoming' && (
+                      <button className="btn-secondary text-sm" aria-label="Preview Iteration">
+                        Preview
+                      </button>
+                    )}
+                    {iteration.status === 'completed' && (
+                      <button
+                        onClick={e => { e.stopPropagation(); navigate('/theory') }}
+                        className="btn-secondary text-sm focus:underline"
+                        aria-label="Review Iteration"
+                      >
+                        Review
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                {/* File Progress */}
-                {selectedIteration === iteration.id && (
-                  <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <h5 className="font-medium text-gray-900 dark:text-white mb-3">Study Materials</h5>
-                    <div className="space-y-2">
-                      {iteration.files.map((fileName, fileIndex) => {
-                        const isCompleted = iteration.completedFiles.includes(fileName)
-                        return (
-                          <div key={fileIndex} className="flex items-center space-x-3">
-                            <button
-                              onClick={() => toggleFileCompletion(iteration.id, fileName)}
-                              className={`w-5 h-5 rounded-full border-2 transition-colors flex items-center justify-center ${
-                                isCompleted
-                                  ? 'bg-green-500 border-green-500'
-                                  : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
-                              }`}
-                            >
-                              {isCompleted && <CheckCircle className="w-4 h-4 text-white" />}
-                            </button>
-                            <div className="flex-1 flex items-center space-x-2">
-                              <FileText className="w-4 h-4 text-gray-400" />
-                              <Link
-                                to="/theory"
-                                state={{ folder: iteration.folder, file: fileName }}
-                                className={`text-sm hover:underline ${
-                                  isCompleted
-                                    ? 'text-gray-500 dark:text-gray-400 line-through'
-                                    : 'text-blue-600 dark:text-blue-400'
-                                }`}
-                              >
-                                {fileName}
-                              </Link>
-                            </div>
-                            {isCompleted && (
-                              <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                ✓ Complete
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                    
-                    <div className="mt-3">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600 dark:text-gray-400">Progress</span>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          {iteration.completedFiles.length}/{iteration.files.length}
-                        </span>
-                      </div>
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-fill" 
-                          style={{ width: `${(iteration.completedFiles.length / iteration.files.length) * 100}%` }}
-                        />
-                      </div>
+                {/* Animated Progress Bar */}
+                {iteration.progress > 0 && (
+                  <div className="mt-3 w-full">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-700
+                          ${iteration.progress === 100 ? 'bg-green-500' : iteration.status === 'current' ? 'bg-blue-500' : 'bg-pink-400'}`}
+                        style={{ width: `${iteration.progress}%` }}
+                      />
                     </div>
                   </div>
                 )}
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Progress Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Overall Progress</h3>
-            <TrendingUp className="w-5 h-5 text-green-500" />
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Completed</span>
-              <span className="font-medium">{completedIterations}/{totalIterations}</span>
-            </div>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${overallProgress}%` }} />
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Current Focus</h3>
-            <span className="text-2xl">{currentIteration?.emoji}</span>
-          </div>
-          <div className="space-y-2">
-            <p className="font-medium text-gray-900 dark:text-white">
-              {currentIteration?.title}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {currentIteration?.description}
-            </p>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${currentIteration?.progress}%` }} />
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Next Deadline</h3>
-            <Calendar className="w-5 h-5 text-blue-500" />
-          </div>
-          <div className="space-y-2">
-            <p className="font-medium text-gray-900 dark:text-white">
-              {currentIteration?.title || 'All Done!'}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {currentIteration?.scheduledDate 
-                ? `Due ${currentIteration.scheduledDate.toLocaleDateString()}`
-                : 'No upcoming deadlines'
-              }
-            </p>
           </div>
         </div>
       </div>

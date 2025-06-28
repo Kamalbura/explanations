@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { TrendingUp, Clock, Target, Award, Calendar, BarChart3, Settings, BookOpen, Code, CheckCircle, Trophy } from 'lucide-react'
 import { progressService, type StudyProgress, type ProgressStats } from '../services/ProgressService'
 import { useLeetCodeAuth } from '../contexts/LeetCodeAuthContext'
@@ -12,7 +12,7 @@ const Analytics = () => {
   const [studyProgress, setStudyProgress] = useState<StudyProgress[]>([])
   const [progressStats, setProgressStats] = useState<ProgressStats | null>(null)
   
-  const { isAuthenticated, userData, isLoading, error } = useLeetCodeAuth()
+  const { isAuthenticated, userData } = useLeetCodeAuth()
 
   // Load study progress data
   useEffect(() => {
@@ -115,6 +115,37 @@ const Analytics = () => {
       bgColor: 'bg-red-50 dark:bg-red-900/20',
     },
   ] : []
+
+  // Prepare LeetCode difficulty breakdown (real data)
+  const leetCodeDifficultyData = userData ? [
+    {
+      name: 'Easy',
+      solved: userData.progress.easySolved,
+      total: userData.progress.easyTotal,
+      percentage: ((userData.progress.easySolved / userData.progress.easyTotal) * 100).toFixed(1),
+      color: '#10B981'
+    },
+    {
+      name: 'Medium',
+      solved: userData.progress.mediumSolved,
+      total: userData.progress.mediumTotal,
+      percentage: ((userData.progress.mediumSolved / userData.progress.mediumTotal) * 100).toFixed(1),
+      color: '#F59E0B'
+    },
+    {
+      name: 'Hard',
+      solved: userData.progress.hardSolved,
+      total: userData.progress.hardTotal,
+      percentage: ((userData.progress.hardSolved / userData.progress.hardTotal) * 100).toFixed(1),
+      color: '#EF4444'
+    }
+  ] : []
+
+  // Debug: Log the data to console to verify values
+  if (userData) {
+    console.log('LeetCode Difficulty Data:', leetCodeDifficultyData)
+    console.log('Raw UserData Progress:', userData.progress)
+  }
 
   return (
     <div className="space-y-6">
@@ -261,7 +292,7 @@ const Analytics = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {/* Daily Study Activity */}
             <div className="card">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -286,11 +317,89 @@ const Analytics = () => {
               </ResponsiveContainer>
             </div>
 
-            {/* Difficulty Distribution */}
+            {/* LeetCode Difficulty Distribution */}
             <div className="card">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <Target className="w-5 h-5 mr-2 text-green-500" />
-                Difficulty Progress
+                LeetCode Difficulty Progress
+              </h3>
+              {userData ? (
+                <div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={leetCodeDifficultyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#6B7280"
+                        fontSize={12}
+                      />
+                      <YAxis 
+                        stroke="#6B7280"
+                        fontSize={12}
+                        domain={[0, 'dataMax']}
+                        tickFormatter={(value) => value.toLocaleString()}
+                      />
+                      <Tooltip 
+                        formatter={(value, name) => [
+                          `${value.toLocaleString()} problems`,
+                          name === 'solved' ? 'Solved' : 'Total Available'
+                        ]}
+                        labelFormatter={(label) => `${label} Difficulty`}
+                        contentStyle={{ 
+                          backgroundColor: '#1F2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px',
+                          color: '#F9FAFB'
+                        }}
+                      />
+                      <Legend 
+                        wrapperStyle={{ color: '#6B7280' }}
+                        formatter={(value) => value === 'solved' ? 'Solved' : 'Total Available'}
+                      />                    <Bar 
+                      dataKey="total" 
+                      fill="#E5E7EB" 
+                      radius={[4, 4, 4, 4]} 
+                      name="total" 
+                    />
+                    <Bar 
+                      dataKey="solved" 
+                      fill="#10B981" 
+                      radius={[4, 4, 4, 4]} 
+                      name="solved" 
+                    />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Difficulty Statistics */}
+                  <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+                    {leetCodeDifficultyData.map((item, index) => (
+                      <div key={index} className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
+                        <div className="text-gray-600 dark:text-gray-400">
+                          {item.solved}/{item.total}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-500">
+                          {item.percentage}% complete
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-gray-500">
+                  <div className="text-center">
+                    <Target className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Connect your LeetCode account to see difficulty progress</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Study Materials Difficulty Distribution */}
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <BookOpen className="w-5 h-5 mr-2 text-purple-500" />
+                Study Materials Progress
               </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>

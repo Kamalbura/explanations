@@ -43,9 +43,24 @@ const LeetCodeDashboard = () => {
 
   // Prepare data for charts
   const difficultyData = [
-    { name: 'Easy', solved: userData.progress.easySolved, total: userData.progress.easyTotal, fill: COLORS.easy },
-    { name: 'Medium', solved: userData.progress.mediumSolved, total: userData.progress.mediumTotal, fill: COLORS.medium },
-    { name: 'Hard', solved: userData.progress.hardSolved, total: userData.progress.hardTotal, fill: COLORS.hard },
+    { 
+      name: 'Easy', 
+      solved: userData.progress.easySolved, 
+      total: userData.progress.easyTotal,
+      percentage: ((userData.progress.easySolved / userData.progress.easyTotal) * 100).toFixed(1)
+    },
+    { 
+      name: 'Medium', 
+      solved: userData.progress.mediumSolved, 
+      total: userData.progress.mediumTotal,
+      percentage: ((userData.progress.mediumSolved / userData.progress.mediumTotal) * 100).toFixed(1)
+    },
+    { 
+      name: 'Hard', 
+      solved: userData.progress.hardSolved, 
+      total: userData.progress.hardTotal,
+      percentage: ((userData.progress.hardSolved / userData.progress.hardTotal) * 100).toFixed(1)
+    },
   ];
 
   const submissionCalendarData = Object.entries(userData.submissionCalendar || {}).map(
@@ -232,20 +247,64 @@ const LeetCodeDashboard = () => {
                       data={difficultyData}
                       margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="solved" name="Solved" stackId="a" fill={COLORS.solved} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#6B7280"
+                        fontSize={12}
+                      />
+                      <YAxis 
+                        stroke="#6B7280"
+                        fontSize={12}
+                        domain={[0, 'dataMax']}
+                        tickFormatter={(value) => value.toLocaleString()}
+                      />
+                      <Tooltip 
+                        formatter={(value, name) => [
+                          `${value} problems`,
+                          name === 'solved' ? 'Solved' : 'Total Available'
+                        ]}
+                        labelFormatter={(label) => `${label} Problems`}
+                        contentStyle={{ 
+                          backgroundColor: '#1F2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px',
+                          color: '#F9FAFB'
+                        }}
+                      />
+                      <Legend 
+                        wrapperStyle={{ color: '#6B7280' }}
+                        formatter={(value) => value === 'solved' ? 'Solved' : 'Total Available'}
+                      />
                       <Bar 
                         dataKey="total" 
-                        name="Unsolved" 
-                        stackId="a" 
-                        fill={COLORS.unsolved}
+                        name="total"
+                        fill="#E5E7EB" 
+                        radius={[4, 4, 0, 0]} 
+                      />
+                      <Bar 
+                        dataKey="solved" 
+                        name="solved"
+                        fill="#10B981" 
+                        radius={[4, 4, 0, 0]} 
                       />
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+                
+                {/* Difficulty Statistics */}
+                <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+                  {difficultyData.map((item, index) => (
+                    <div key={index} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
+                      <div className="text-gray-600 dark:text-gray-400">
+                        {item.solved}/{item.total}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-500">
+                        {item.percentage}% complete
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
               
