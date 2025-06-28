@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { BookOpen, Clock, CheckCircle, ArrowLeft, ArrowRight, Search, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ContentService } from '../services/ContentService'
+import { progressService } from '../services/ProgressService'
 import FileExplorer from './FileExplorer'
 import type { TheoryContent } from '../App'
 
@@ -17,6 +18,8 @@ const TheoryViewer = () => {
   const [loadingFile, setLoadingFile] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [studyStartTime, setStudyStartTime] = useState<Date | null>(null)
 
   // Load theory files using ContentService
   useEffect(() => {
@@ -45,6 +48,11 @@ const TheoryViewer = () => {
   )
 
   const handleFileSelect = async (filePath: string) => {
+    // End current session if exists
+    if (currentSessionId) {
+      progressService.endStudySession(currentSessionId)
+    }
+
     setLoadingFile(true)
     setSelectedFilePath(filePath)
     setSelectedFile(null) // Clear topic-based selection
@@ -54,6 +62,12 @@ const TheoryViewer = () => {
       if (response.ok) {
         const data = await response.json()
         setFileContent(data.content || '')
+
+        // Start new study session
+        const materialId = filePath.replace(/[\/\\]/g, '_').replace('.md', '')
+        const sessionId = progressService.startStudySession(materialId)
+        setCurrentSessionId(sessionId)
+        setStudyStartTime(new Date())
       } else {
         setFileContent('Failed to load file content')
       }
@@ -69,7 +83,44 @@ const TheoryViewer = () => {
     setTheoryFiles(prev => prev.map(file =>
       file.id === fileId ? { ...file, isRead: true } : file
     ))
+
+    // Also mark in progress service
+    const materialId = selectedFilePath ? selectedFilePath.replace(/[\/\\]/g, '_').replace('.md', '') : fileId
+    progressService.markAsCompleted(materialId)
+
+    // End current session
+    if (currentSessionId) {
+      progressService.endStudySession(currentSessionId)
+      setCurrentSessionId(null)
+      setStudyStartTime(null)
+    }
   }
+
+  // Handle topic selection (existing materials)
+  const handleTopicSelect = (file: TheoryContent) => {
+    // End current session if exists
+    if (currentSessionId) {
+      progressService.endStudySession(currentSessionId)
+    }
+
+    setSelectedFile(file)
+    setSelectedFilePath('')
+    setFileContent('')
+
+    // Start new study session for topic
+    const sessionId = progressService.startStudySession(file.id)
+    setCurrentSessionId(sessionId)
+    setStudyStartTime(new Date())
+  }
+
+  // Clean up session on unmount
+  useEffect(() => {
+    return () => {
+      if (currentSessionId) {
+        progressService.endStudySession(currentSessionId)
+      }
+    }
+  }, [currentSessionId])
 
   if (loading) {
     return (
@@ -80,9 +131,9 @@ const TheoryViewer = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)]">
+    <div className="flex h-[calc(100vh-8rem)] space-x-6">
       {/* Sidebar */}
-      <div className={`${isSidebarCollapsed ? 'w-0 opacity-0 pointer-events-none' : 'w-80 mr-6'} card h-fit max-h-full overflow-hidden flex flex-col transition-all duration-300`}>
+      <div className={`${isSidebarCollapsed ? 'w-0 opacity-0 pointer-events-none overflow-hidden' : 'w-80'} card h-fit max-h-full flex flex-col transition-all duration-300`}>
         {/* Collapsed state - show only expand button */}
         {isSidebarCollapsed ? (
           <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-10">
@@ -174,11 +225,7 @@ const TheoryViewer = () => {
                   {filteredFiles.map(file => (
                     <button
                       key={file.id}
-                      onClick={() => {
-                        setSelectedFile(file)
-                        setSelectedFilePath('')
-                        setFileContent('')
-                      }}
+                      onClick={() => handleTopicSelect(file)}
                       className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
                         selectedFile?.id === file.id && !selectedFilePath
                           ? 'bg-primary-50 border-l-4 border-primary-500 dark:bg-primary-900/20'
@@ -215,7 +262,7 @@ const TheoryViewer = () => {
       </div>
 
       {/* Main Content */}
-      <div className={`flex-1 card ${isSidebarCollapsed ? 'ml-0' : ''}`}>
+      <div className={`flex-1 card ${isSidebarCollapsed ? 'ml-0' : 'ml-6'}`}>
         {(selectedFile || selectedFilePath) ? (
           <div className="h-full overflow-y-auto">
             {/* Header */}

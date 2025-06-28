@@ -1,78 +1,98 @@
-import { useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { TrendingUp, Clock, Target, Award, BarChart3, BookOpen, Code, CheckCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
+import { TrendingUp, Clock, Target, Award, Calendar, BarChart3, Settings, BookOpen, Code, CheckCircle, Trophy } from 'lucide-react'
+import { progressService, type StudyProgress, type ProgressStats } from '../services/ProgressService'
 import { useLeetCodeAuth } from '../contexts/LeetCodeAuthContext'
-
-interface StudyMaterial {
-  id: string
-  name: string
-  category: string
-  isCompleted: boolean
-  completedAt?: Date
-  timeSpent: number // in minutes
-  path: string
-}
+import ProgressManager from './ProgressManager'
 
 const Analytics = () => {
   const [timeRange, setTimeRange] = useState('7d')
   const [activeTab, setActiveTab] = useState<'learning' | 'coding'>('learning')
-  const { isAuthenticated, userData } = useLeetCodeAuth()
+  const [showProgressManager, setShowProgressManager] = useState(false)
+  const [studyProgress, setStudyProgress] = useState<StudyProgress[]>([])
+  const [progressStats, setProgressStats] = useState<ProgressStats | null>(null)
   
-  // Mock study materials data (this should come from your actual data)
-  const [studyMaterials, setStudyMaterials] = useState<StudyMaterial[]>([
-    { id: '1', name: 'Two Pointers Theory', category: '01_Two_Pointers', isCompleted: true, completedAt: new Date('2025-06-20'), timeSpent: 45, path: '01_Two_Pointers/THEORY_COMPLETE.md' },
-    { id: '2', name: 'Two Pointers Problems', category: '01_Two_Pointers', isCompleted: true, completedAt: new Date('2025-06-21'), timeSpent: 120, path: '01_Two_Pointers/PROBLEMS_SOLUTIONS.md' },
-    { id: '3', name: 'Sliding Window Theory', category: '02_Sliding_Window', isCompleted: true, completedAt: new Date('2025-06-22'), timeSpent: 60, path: '02_Sliding_Window/THEORY_COMPLETE.md' },
-    { id: '4', name: 'Binary Search Theory', category: '03_Binary_Search', isCompleted: true, completedAt: new Date('2025-06-23'), timeSpent: 75, path: '03_Binary_Search/THEORY_COMPLETE.md' },
-    { id: '5', name: 'Binary Search Problems', category: '03_Binary_Search', isCompleted: true, completedAt: new Date('2025-06-24'), timeSpent: 180, path: '03_Binary_Search/PROBLEMS_SOLUTIONS.md' },
-    { id: '6', name: 'Tree Algorithms Theory', category: '08_Tree_Algorithms', isCompleted: true, completedAt: new Date('2025-06-25'), timeSpent: 90, path: '08_Tree_Algorithms/THEORY_COMPLETE.md' },
-    { id: '7', name: 'Tree Algorithms Problems', category: '08_Tree_Algorithms', isCompleted: false, timeSpent: 45, path: '08_Tree_Algorithms/PROBLEMS_SOLUTIONS.md' },
-    { id: '8', name: 'Graph Algorithms Theory', category: '07_Graph_Algorithms', isCompleted: false, timeSpent: 0, path: '07_Graph_Algorithms/THEORY_COMPLETE.md' },
-    { id: '9', name: 'Dynamic Programming Theory', category: '04_Dynamic_Programming', isCompleted: false, timeSpent: 0, path: '04_Dynamic_Programming/THEORY_COMPLETE.md' },
-    { id: '10', name: 'Stack & Queue Theory', category: '09_Stack_Queue', isCompleted: true, completedAt: new Date('2025-06-26'), timeSpent: 85, path: '09_Stack_Queue/THEORY_COMPLETE.md' },
-  ])
+  const { isAuthenticated, userData, isLoading, error } = useLeetCodeAuth()
 
-  // Calculate learning progress statistics
-  const completedMaterials = studyMaterials.filter(m => m.isCompleted)
-  const totalTimeSpent = studyMaterials.reduce((acc, m) => acc + m.timeSpent, 0)
-  const averageTimePerMaterial = totalTimeSpent / studyMaterials.length
-  const completionRate = (completedMaterials.length / studyMaterials.length) * 100
+  // Load study progress data
+  useEffect(() => {
+    loadProgressData()
+  }, [])
 
-  // Daily study progress for the chart
-  const dailyStudyProgress = [
-    { date: 'Mon', materialsRead: 2, timeSpent: 165 },
-    { date: 'Tue', materialsRead: 1, timeSpent: 120 },
-    { date: 'Wed', materialsRead: 3, timeSpent: 210 },
-    { date: 'Thu', materialsRead: 2, timeSpent: 180 },
-    { date: 'Fri', materialsRead: 1, timeSpent: 90 },
-    { date: 'Sat', materialsRead: 0, timeSpent: 0 },
-    { date: 'Sun', materialsRead: 1, timeSpent: 85 },
-  ]
+  const loadProgressData = () => {
+    const progress = progressService.getProgress()
+    const stats = progressService.getStats()
+    setStudyProgress(progress)
+    setProgressStats(stats)
+  }
 
-  // Category completion distribution
-  const categoryProgress = [
-    { category: 'Two Pointers', completed: 2, total: 2, percentage: 100 },
-    { category: 'Sliding Window', completed: 1, total: 1, percentage: 100 },
-    { category: 'Binary Search', completed: 2, total: 2, percentage: 100 },
-    { category: 'Tree Algorithms', completed: 1, total: 2, percentage: 50 },
-    { category: 'Graph Algorithms', completed: 0, total: 2, percentage: 0 },
-    { category: 'Dynamic Programming', completed: 0, total: 1, percentage: 0 },
-    { category: 'Stack & Queue', completed: 1, total: 1, percentage: 100 },
-  ]
+  // Prepare learning progress charts data
+  const prepareLearningData = () => {
+    if (!progressStats) return { dailyProgress: [], categoryProgress: [], difficultyProgress: [] }
 
-  // LeetCode stats (if available)
-  const leetcodeStats = userData ? [
+    // Get recent sessions for daily progress
+    const recentSessions = progressService.getRecentActivity(7)
+    const dailyProgress = []
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      
+      const sessionsOnDate = recentSessions.filter(s => s.date === dateStr)
+      const materialsStudied = new Set(sessionsOnDate.map(s => s.materialId)).size
+      const timeSpent = sessionsOnDate.reduce((total, s) => total + s.duration, 0)
+      
+      dailyProgress.push({
+        date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        materials: materialsStudied,
+        timeSpent: Math.round(timeSpent)
+      })
+    }
+
+    // Category progress
+    const categoryProgress = Object.entries(progressStats.categoriesProgress).map(([category, data]) => ({
+      category: category.replace(/^\d+_/, '').replace(/_/g, ' '),
+      completed: data.completed,
+      total: data.total,
+      percentage: Math.round((data.completed / data.total) * 100)
+    }))
+
+    // Difficulty distribution
+    const difficultyProgress = studyProgress.reduce((acc, material) => {
+      const difficulty = material.difficulty
+      if (!acc[difficulty]) acc[difficulty] = { completed: 0, total: 0 }
+      acc[difficulty].total++
+      if (material.isCompleted) acc[difficulty].completed++
+      return acc
+    }, {} as Record<string, { completed: number; total: number }>)
+
+    const difficultyData = Object.entries(difficultyProgress).map(([difficulty, data]) => ({
+      name: difficulty.charAt(0).toUpperCase() + difficulty.slice(1),
+      value: Math.round((data.completed / data.total) * 100),
+      completed: data.completed,
+      total: data.total,
+      color: difficulty === 'easy' ? '#10B981' : difficulty === 'medium' ? '#F59E0B' : '#EF4444'
+    }))
+
+    return { dailyProgress, categoryProgress, difficultyProgress: difficultyData }
+  }
+
+  const { dailyProgress, categoryProgress, difficultyProgress } = prepareLearningData()
+
+  // Prepare coding progress data (LeetCode)
+  const codingStats = userData ? [
     {
       title: 'Total Solved',
       value: `${userData.progress.totalSolved}`,
-      change: `${userData.progress.acceptanceRate?.toFixed(1)}% acceptance rate`,
-      icon: Target,
+      change: `of ${userData.progress.totalQuestions}`,
+      icon: Trophy,
       color: 'text-green-500',
       bgColor: 'bg-green-50 dark:bg-green-900/20',
     },
     {
       title: 'Easy Problems',
-      value: `${userData.progress.easySolved}/${userData.progress.easyTotal}`,
+      value: `${userData.progress.easySolved}`,
       change: `${((userData.progress.easySolved / userData.progress.easyTotal) * 100).toFixed(1)}% complete`,
       icon: CheckCircle,
       color: 'text-blue-500',
@@ -80,65 +100,21 @@ const Analytics = () => {
     },
     {
       title: 'Medium Problems',
-      value: `${userData.progress.mediumSolved}/${userData.progress.mediumTotal}`,
+      value: `${userData.progress.mediumSolved}`,
       change: `${((userData.progress.mediumSolved / userData.progress.mediumTotal) * 100).toFixed(1)}% complete`,
-      icon: Clock,
+      icon: Target,
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
     },
     {
       title: 'Hard Problems',
-      value: `${userData.progress.hardSolved}/${userData.progress.hardTotal}`,
+      value: `${userData.progress.hardSolved}`,
       change: `${((userData.progress.hardSolved / userData.progress.hardTotal) * 100).toFixed(1)}% complete`,
       icon: Award,
       color: 'text-red-500',
       bgColor: 'bg-red-50 dark:bg-red-900/20',
     },
   ] : []
-
-  // Learning progress stats
-  const learningStats = [
-    {
-      title: 'Materials Completed',
-      value: `${completedMaterials.length}/${studyMaterials.length}`,
-      change: `${completionRate.toFixed(1)}% completion rate`,
-      icon: BookOpen,
-      color: 'text-green-500',
-      bgColor: 'bg-green-50 dark:bg-green-900/20',
-    },
-    {
-      title: 'Total Study Time',
-      value: `${Math.floor(totalTimeSpent / 60)}h ${totalTimeSpent % 60}m`,
-      change: `${averageTimePerMaterial.toFixed(0)}m avg per material`,
-      icon: Clock,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-    },
-    {
-      title: 'Study Streak',
-      value: '7 days',
-      change: 'Personal best!',
-      icon: Award,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-50 dark:bg-purple-900/20',
-    },
-    {
-      title: 'This Week',
-      value: `${dailyStudyProgress.reduce((acc, day) => acc + day.materialsRead, 0)} materials`,
-      change: `${dailyStudyProgress.reduce((acc, day) => acc + day.timeSpent, 0)}m total time`,
-      icon: TrendingUp,
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-50 dark:bg-orange-900/20',
-    },
-  ]
-
-  const markMaterialAsCompleted = (materialId: string) => {
-    setStudyMaterials(prev => prev.map(material => 
-      material.id === materialId 
-        ? { ...material, isCompleted: true, completedAt: new Date() }
-        : material
-    ))
-  }
 
   return (
     <div className="space-y-6">
@@ -147,37 +123,11 @@ const Analytics = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Analytics Dashboard</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Track your learning journey and coding progress
+            Track your learning progress and coding achievements
           </p>
         </div>
         
         <div className="mt-4 md:mt-0 flex items-center space-x-4">
-          {/* Tab Selection */}
-          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-            <button
-              onClick={() => setActiveTab('learning')}
-              className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === 'learning'
-                  ? 'bg-white dark:bg-gray-600 text-primary-700 dark:text-primary-300 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>Learning Progress</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('coding')}
-              className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === 'coding'
-                  ? 'bg-white dark:bg-gray-600 text-primary-700 dark:text-primary-300 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              <Code className="w-4 h-4" />
-              <span>Code Progress</span>
-            </button>
-          </div>
-
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
@@ -186,50 +136,140 @@ const Analytics = () => {
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
             <option value="90d">Last 3 months</option>
-            <option value="1y">Last year</option>
           </select>
+          
+          <button
+            onClick={() => setShowProgressManager(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            <span>Manage Progress</span>
+          </button>
         </div>
       </div>
 
-      {/* Learning Progress Tab */}
-      {activeTab === 'learning' && (
-        <>
-          {/* Learning Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {learningStats.map((stat, index) => {
-              const Icon = stat.icon
-              return (
-                <div key={index} className="card">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                        {stat.title}
-                      </p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {stat.value}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {stat.change}
-                      </p>
-                    </div>
-                    <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                      <Icon className={`w-6 h-6 ${stat.color}`} />
-                    </div>
+      {/* Tab Navigation */}
+      <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+        <button
+          onClick={() => setActiveTab('learning')}
+          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'learning'
+              ? 'bg-white dark:bg-gray-700 text-primary-700 dark:text-primary-300 shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <BookOpen className="w-5 h-5" />
+          <span>Learning Progress</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('coding')}
+          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'coding'
+              ? 'bg-white dark:bg-gray-700 text-primary-700 dark:text-primary-300 shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <Code className="w-5 h-5" />
+          <span>Code Progress</span>
+        </button>
+      </div>
+
+      {/* Content based on active tab */}
+      {activeTab === 'learning' ? (
+        <div className="space-y-6">
+          {/* Learning Progress Stats */}
+          {progressStats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      Materials Completed
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {progressStats.completedMaterials}/{progressStats.totalMaterials}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {((progressStats.completedMaterials / progressStats.totalMaterials) * 100).toFixed(1)}% complete
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+                    <BookOpen className="w-6 h-6 text-green-500" />
                   </div>
                 </div>
-              )
-            })}
-          </div>
+              </div>
+
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      Study Time
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {(progressStats.totalTimeSpent / 60).toFixed(1)}h
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Total time invested
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                    <Clock className="w-6 h-6 text-blue-500" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      Study Streak
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {progressStats.currentStreak}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Days in a row
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                    <Award className="w-6 h-6 text-purple-500" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      Last Study
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {progressStats.lastStudyDate 
+                        ? new Date(progressStats.lastStudyDate).toLocaleDateString()
+                        : 'Never'
+                      }
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Latest activity
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                    <Calendar className="w-6 h-6 text-orange-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Daily Study Progress Chart */}
+            {/* Daily Study Activity */}
             <div className="card">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
-                Daily Study Progress
+                Daily Study Activity
               </h3>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dailyStudyProgress}>
+                <BarChart data={dailyProgress}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
                   <XAxis dataKey="date" stroke="#6B7280" />
                   <YAxis stroke="#6B7280" />
@@ -241,96 +281,74 @@ const Analytics = () => {
                       color: '#F9FAFB'
                     }}
                   />
-                  <Bar dataKey="materialsRead" fill="#667eea" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="materials" fill="#667eea" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Category Progress */}
+            {/* Difficulty Distribution */}
             <div className="card">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <BarChart3 className="w-5 h-5 mr-2 text-purple-500" />
-                Category Progress
+                <Target className="w-5 h-5 mr-2 text-green-500" />
+                Difficulty Progress
               </h3>
-              <div className="space-y-4">
-                {categoryProgress.map((category, index) => (
-                  <div key={index}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {category.category}
-                      </span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {category.completed}/{category.total}
-                      </span>
-                    </div>
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill" 
-                        style={{ width: `${category.percentage}%` }}
-                      />
-                    </div>
-                    <div className="text-right mt-1">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {category.percentage}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={difficultyProgress}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    dataKey="value"
+                    label={({ name, value }) => `${name}: ${value}%`}
+                  >
+                    {difficultyProgress.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Study Materials Progress */}
+          {/* Category Progress */}
           <div className="card">
             <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <BookOpen className="w-5 h-5 mr-2 text-green-500" />
-              Study Materials Progress
+              <BarChart3 className="w-5 h-5 mr-2 text-purple-500" />
+              Category Progress
             </h3>
-            <div className="space-y-3">
-              {studyMaterials.map((material) => (
-                <div key={material.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => markMaterialAsCompleted(material.id)}
-                      className={`w-5 h-5 rounded-full border-2 transition-colors ${
-                        material.isCompleted
-                          ? 'bg-green-500 border-green-500'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
-                      }`}
-                    >
-                      {material.isCompleted && (
-                        <CheckCircle className="w-5 h-5 text-white" />
-                      )}
-                    </button>
-                    <div>
-                      <h4 className={`font-medium ${material.isCompleted ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
-                        {material.name}
-                      </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {material.category} • {material.timeSpent}m
-                        {material.completedAt && ` • Completed ${material.completedAt.toLocaleDateString()}`}
-                      </p>
-                    </div>
+            <div className="space-y-4">
+              {categoryProgress.map((category, index) => (
+                <div key={index}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {category.category}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {category.completed}/{category.total}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    {material.isCompleted ? (
-                      <span className="text-green-500 text-sm font-medium">✓ Complete</span>
-                    ) : (
-                      <span className="text-gray-400 text-sm">In Progress</span>
-                    )}
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill" 
+                      style={{ width: `${category.percentage}%` }}
+                    />
+                  </div>
+                  <div className="text-right mt-1">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {category.percentage}%
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </>
-      )}
-
-      {/* Code Progress Tab */}
-      {activeTab === 'coding' && (
-        <>
-          {/* Connection Status */}
-          {!isAuthenticated && (
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* LeetCode Connection Status */}
+          {!isAuthenticated ? (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-4 rounded-lg">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -340,83 +358,78 @@ const Analytics = () => {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    Connect your LeetCode account to see detailed coding progress and statistics.
+                    Connect your LeetCode account to see coding progress.
+                    <a href="/leetcode/login" className="ml-2 font-medium underline">Connect now</a>
                   </p>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* LeetCode Stats Grid */}
-          {isAuthenticated && leetcodeStats.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {leetcodeStats.map((stat, index) => {
-                const Icon = stat.icon
-                return (
-                  <div key={index} className="card">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                          {stat.title}
-                        </p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {stat.value}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {stat.change}
-                        </p>
-                      </div>
-                      <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                        <Icon className={`w-6 h-6 ${stat.color}`} />
+          ) : (
+            <>
+              {/* Coding Progress Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {codingStats.map((stat, index) => {
+                  const Icon = stat.icon
+                  return (
+                    <div key={index} className="card">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                            {stat.title}
+                          </p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {stat.value}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {stat.change}
+                          </p>
+                        </div>
+                        <div className={`p-3 rounded-lg ${stat.bgColor}`}>
+                          <Icon className={`w-6 h-6 ${stat.color}`} />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Placeholder when not connected */}
-          {!isAuthenticated && (
-            <div className="card text-center py-12">
-              <Code className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                Connect Your LeetCode Account
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Get detailed insights into your coding progress, problem-solving patterns, and improvement areas.
-              </p>
-              <button className="btn-primary">
-                Connect LeetCode
-              </button>
-            </div>
-          )}
-
-          {/* Recent Activity */}
-          {isAuthenticated && userData?.recentAcSubmissions && (
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <Clock className="w-5 h-5 mr-2 text-green-500" />
-                Recent Submissions
-              </h3>
-              <div className="space-y-3">
-                {userData.recentAcSubmissions.slice(0, 10).map((submission: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white">
-                        {submission.title}
-                      </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {submission.lang} • {new Date(submission.timestamp * 1000).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className="text-green-500 text-sm font-medium">✓ Accepted</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
-            </div>
+
+              {/* Recent LeetCode Activity */}
+              {userData?.recentAcSubmissions && userData.recentAcSubmissions.length > 0 && (
+                <div className="card">
+                  <h3 className="text-lg font-semibold mb-4">Recent Solved Problems</h3>
+                  <div className="space-y-3">
+                    {userData.recentAcSubmissions.slice(0, 10).map((submission: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div>
+                          <a 
+                            href={`https://leetcode.com/problems/${submission.titleSlug}/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            {submission.title}
+                          </a>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {submission.lang} • {new Date(submission.timestamp * 1000).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
-        </>
+        </div>
+      )}
+
+      {/* Progress Manager Modal */}
+      {showProgressManager && (
+        <ProgressManager
+          onClose={() => setShowProgressManager(false)}
+          onProgressReset={loadProgressData}
+        />
       )}
     </div>
   )
