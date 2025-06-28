@@ -308,7 +308,9 @@ async function handleContentAPI(req: any, res: any, explanationsPath: string) {
 async function handleLeetCodeAPI(req: any, res: any) {
   try {
     // Handle CORS preflight
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173')
+    res.setHeader('Access-Control-Allow-Origin', 
+      process.env.NODE_ENV === 'production' ? req.headers.origin || '*' : 'http://localhost:5173'
+    )
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
     res.setHeader('Access-Control-Allow-Credentials', 'true')
@@ -380,7 +382,9 @@ async function handleLeetCodeAPI(req: any, res: any) {
 // LeetCode test endpoint handler
 async function handleLeetCodeTest(req: any, res: any) {
   try {
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173')
+    res.setHeader('Access-Control-Allow-Origin', 
+      process.env.NODE_ENV === 'production' ? req.headers.origin || '*' : 'http://localhost:5173'
+    )
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
     

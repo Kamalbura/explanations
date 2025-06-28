@@ -45,7 +45,9 @@ export interface LeetCodeSubmission {
 
 export class LeetCodeService {
   // Use our proxy server to avoid CORS issues
-  private static readonly API_BASE = 'http://localhost:3030/api/leetcode'
+  private static readonly API_BASE = import.meta.env.PROD 
+    ? '/api/leetcode' 
+    : 'http://localhost:3030/api/leetcode'
   
   // Cache for storing fetched data to reduce API calls
   private static cache: Map<string, { data: any; timestamp: number }> = new Map()

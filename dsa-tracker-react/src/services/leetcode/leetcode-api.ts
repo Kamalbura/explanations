@@ -4,7 +4,9 @@
  */
 
 const LEETCODE_GRAPHQL_ENDPOINT = 'https://leetcode.com/graphql';
-const LEETCODE_PROXY_ENDPOINT = 'http://localhost:5173/api/leetcode';
+const LEETCODE_PROXY_ENDPOINT = import.meta.env.PROD 
+  ? '/api/leetcode' 
+  : 'http://localhost:5173/api/leetcode';
 
 interface LeetCodeUserProfile {
   username: string;

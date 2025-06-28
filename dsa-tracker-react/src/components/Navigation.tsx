@@ -10,7 +10,12 @@ import {
   Settings,
   ChevronRight,
   ExternalLink,
-  Edit
+  Edit,
+  Heart,
+  X,
+  Github,
+  Linkedin,
+  Instagram
 } from 'lucide-react'
 
 interface NavigationProps {
@@ -21,8 +26,9 @@ interface NavigationProps {
 
 const Navigation = ({ isOpen, isCollapsed = false, onCollapse }: NavigationProps) => {
   const location = useLocation()
-  const [isHovered, setIsHovered] = useState(false)
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [showDeveloperModal, setShowDeveloperModal] = useState(false)
+  const sidebarRef = useRef<HTMLElement>(null)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: Home },
@@ -37,30 +43,62 @@ const Navigation = ({ isOpen, isCollapsed = false, onCollapse }: NavigationProps
     { name: 'Settings', path: '/settings', icon: Settings },
   ]
 
-  const handleMouseEnter = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current)
-      hoverTimeoutRef.current = null
+  // Toggle sidebar collapse
+  const toggleCollapse = () => {
+    if (onCollapse) {
+      onCollapse(!isCollapsed)
     }
-    setIsHovered(true)
-    if (isCollapsed && onCollapse) {
-      onCollapse(false)
+  }
+
+  // Close developer modal
+  const closeDeveloperModal = () => {
+    setShowDeveloperModal(false)
+  }
+
+  // Handle ESC key to close developer modal
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showDeveloperModal) {
+        closeDeveloperModal()
+      }
+    }
+
+    if (showDeveloperModal) {
+      document.addEventListener('keydown', handleEscape)
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [showDeveloperModal])
+
+  // Handle click outside modal to close
+  const handleModalBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      closeDeveloperModal()
+    }
+  }
+
+  // Auto-close sidebar after 0.75s of not touching it
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
     }
   }
 
   const handleMouseLeave = () => {
-    setIsHovered(false)
     if (!isCollapsed && onCollapse) {
-      hoverTimeoutRef.current = setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         onCollapse(true)
-      }, 150) // Much faster, more professional - 150ms delay
+      }, 750) // 0.75 seconds
     }
   }
 
+  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
       }
     }
   }, [])
@@ -68,57 +106,166 @@ const Navigation = ({ isOpen, isCollapsed = false, onCollapse }: NavigationProps
   if (!isOpen) return null
 
   return (
-    <aside
-      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] 
-        bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
-        z-40 transition-all duration-200 ease-out
-        ${isCollapsed ? 'w-16 shadow-sm' : 'w-64 shadow-lg'}
-        ${isHovered && isCollapsed ? 'shadow-xl' : ''}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div className={`${isCollapsed ? 'p-2' : 'p-6'} h-full overflow-y-auto`}>
-        <nav className="space-y-2">
-          {menuItems.map((item) => {
-            const isActive =
-              location.pathname === item.path ||
-              (item.path === '/' && location.pathname === '/dashboard')
-            const Icon = item.icon
+    <>
+      <aside
+        ref={sidebarRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={`fixed left-0 top-16 h-[calc(100vh-4rem)] 
+          bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
+          z-40 transition-all duration-200 ease-out
+          ${isCollapsed ? 'w-16 shadow-sm' : 'w-64 shadow-lg'}`}
+      >
+        {/* Toggle Button */}
+        <div className="absolute -right-3 top-6 z-50">
+          <button
+            onClick={toggleCollapse}
+            className="w-6 h-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+          >
+            <ChevronRight 
+              size={12} 
+              className={`transition-transform duration-200 ${isCollapsed ? 'rotate-0' : 'rotate-180'}`}
+            />
+          </button>
+        </div>
+        <div className={`${isCollapsed ? 'p-2' : 'p-6'} h-full overflow-y-auto flex flex-col`}>
+          <nav className="space-y-2 flex-1">
+            {menuItems.map((item) => {
+              const isActive =
+                location.pathname === item.path ||
+                (item.path === '/' && location.pathname === '/dashboard')
+              const Icon = item.icon
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center p-3 rounded-lg transition-all duration-200 group relative ${
-                  isActive
-                    ? 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white shadow-lg'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                } ${isCollapsed ? 'justify-center' : 'justify-between'}`}
-                title={isCollapsed ? item.name : undefined}
-              >
-                <div className={`flex items-center ${isCollapsed ? '' : 'space-x-3'}`}>
-                  <Icon size={20} />
-                  {!isCollapsed && <span className="font-medium">{item.name}</span>}
-                </div>
-                {!isCollapsed && (
-                  <ChevronRight
-                    size={16}
-                    className={`transition-transform ${isActive ? 'rotate-90' : 'group-hover:translate-x-1'}`}
-                  />
-                )}
-
-                {/* Tooltip for collapsed state */}
-                {isCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                    {item.name}
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center p-3 rounded-lg transition-all duration-200 group relative ${
+                    isActive
+                      ? 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white shadow-lg'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  } ${isCollapsed ? 'justify-center' : 'justify-between'}`}
+                  title={isCollapsed ? item.name : undefined}
+                >
+                  <div className={`flex items-center ${isCollapsed ? '' : 'space-x-3'}`}>
+                    <Icon size={20} />
+                    {!isCollapsed && <span className="font-medium">{item.name}</span>}
                   </div>
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
-    </aside>
+                  {!isCollapsed && (
+                    <ChevronRight
+                      size={16}
+                      className={`transition-transform ${isActive ? 'rotate-90' : 'group-hover:translate-x-1'}`}
+                    />
+                  )}
+
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                      {item.name}
+                    </div>
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* Simple Heart Button at Bottom */}
+          <div className={`mt-auto border-t border-gray-200 dark:border-gray-700 pt-4`}>
+            <button
+              onClick={() => setShowDeveloperModal(true)}
+              className={`w-full flex items-center justify-center p-3 rounded-lg transition-all duration-200 group
+                text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 hover:scale-105
+                ${isCollapsed ? '' : ''}`}
+              title={isCollapsed ? "Made with ❤️ by Kamal Bura (Click to learn more)" : "Made with ❤️ (Click to learn more)"}
+            >
+              <Heart 
+                size={isCollapsed ? 18 : 20} 
+                className="transition-all duration-200" 
+                fill="currentColor"
+              />
+              {!isCollapsed && (
+                <span className="ml-2 text-sm font-medium">Made with ❤️</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Developer Modal - Clean & Minimal */}
+      {showDeveloperModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={handleModalBackdropClick}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-sm w-full mx-4 border border-gray-200 dark:border-gray-700">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 relative">
+              <button
+                onClick={closeDeveloperModal}
+                className="absolute top-4 right-4 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                title="Close (ESC)"
+              >
+                <X size={18} className="text-gray-500 dark:text-gray-400" />
+              </button>
+              
+              <div className="text-center">
+                <Heart size={24} fill="currentColor" className="text-red-500 mx-auto mb-3" />
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                  Made with patience
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">by Kamal Bura</p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Social Links - Simple & Clean */}
+              <div className="space-y-3">
+                <a
+                  href="https://github.com/kamalbura"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Github size={18} className="text-gray-700 dark:text-gray-300" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">GitHub</span>
+                  <ExternalLink size={14} className="text-gray-400 ml-auto" />
+                </a>
+
+                <a
+                  href="https://linkedin.com/in/kamal-bura"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Linkedin size={18} className="text-gray-700 dark:text-gray-300" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">LinkedIn</span>
+                  <ExternalLink size={14} className="text-gray-400 ml-auto" />
+                </a>
+
+                <a
+                  href="https://instagram.com/kamal.bura"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Instagram size={18} className="text-gray-700 dark:text-gray-300" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Instagram</span>
+                  <ExternalLink size={14} className="text-gray-400 ml-auto" />
+                </a>
+              </div>
+
+              {/* Footer */}
+              <div className="mt-6 text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  DSA Mastery Hub • React + TypeScript
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
