@@ -1,0 +1,35 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start Development Server",
+			"type": "shell",
+			"command": "cd ${workspaceFolder}/dsa-tracker-react && npm run dev",
+			"isBackground": true,
+			"group": "build",
+			"problemMatcher": [
+				"$tsc"
+			]
+		},
+		{
+			"label": "Start Content Proxy Server",
+			"type": "shell",
+			"command": "cd ${workspaceFolder}/dsa-tracker-react && node content-server.js",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Start Both App & Proxy",
+			"dependsOn": [
+				"Start Development Server",
+				"Start Content Proxy Server"
+			],
+			"dependsOrder": "parallel",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": []
+		}
+	]
+}

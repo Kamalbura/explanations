@@ -14,7 +14,7 @@ interface UserSettings {
 
 const Settings = () => {
   const [settings, setSettings] = useState<UserSettings>({
-    leetcodeUsername: '',
+    leetcodeUsername: 'burakamal13', // Pre-filled with your username
     autoSync: true,
     syncInterval: 30,
     theme: 'system',

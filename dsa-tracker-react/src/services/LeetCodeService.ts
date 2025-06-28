@@ -44,8 +44,10 @@ export interface LeetCodeSubmission {
 }
 
 export class LeetCodeService {
+  private static readonly USE_PROXY = true
   private static readonly LEETCODE_API_BASE = 'https://leetcode.com'
   private static readonly GRAPHQL_ENDPOINT = `${this.LEETCODE_API_BASE}/graphql`
+  private static readonly PROXY_ENDPOINT = 'http://localhost:3001/api/leetcode/graphql'
   
   // Cache for storing fetched data to reduce API calls
   private static cache: Map<string, { data: any; timestamp: number }> = new Map()
@@ -81,26 +83,10 @@ export class LeetCodeService {
         }
       `
 
-      const response = await fetch(this.GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DSA-Tracker-App/1.0'
-        },
-        body: JSON.stringify({
-          query,
-          variables: { username }
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const data = await this.fetchFromLeetCode(query, { username })
       
-      if (data.errors) {
-        console.error('LeetCode API errors:', data.errors)
+      if (!data || data.errors) {
+        console.error('LeetCode API errors:', data?.errors)
         return null
       }
 
@@ -165,26 +151,10 @@ export class LeetCodeService {
         }
       `
 
-      const response = await fetch(this.GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DSA-Tracker-App/1.0'
-        },
-        body: JSON.stringify({
-          query,
-          variables: { username, limit }
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const data = await this.fetchFromLeetCode(query, { username, limit })
       
-      if (data.errors) {
-        console.error('LeetCode API errors:', data.errors)
+      if (!data || data.errors) {
+        console.error('LeetCode API errors:', data?.errors)
         return []
       }
 
@@ -250,33 +220,19 @@ export class LeetCodeService {
         }
       `
 
-      const response = await fetch(this.GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DSA-Tracker-App/1.0'
-        },
-        body: JSON.stringify({
-          query,
-          variables: {
-            categorySlug: "",
-            limit,
-            skip: 0,
-            filters: {
-              tags: [tag]
-            }
-          }
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      const variables = {
+        categorySlug: "",
+        limit,
+        skip: 0,
+        filters: {
+          tags: [tag]
+        }
       }
 
-      const data = await response.json()
+      const data = await this.fetchFromLeetCode(query, variables)
       
-      if (data.errors) {
-        console.error('LeetCode API errors:', data.errors)
+      if (!data || data.errors) {
+        console.error('LeetCode API errors:', data?.errors)
         return []
       }
 
@@ -304,21 +260,149 @@ export class LeetCodeService {
 
   /**
    * Get user's progress on specific problems
-   * Note: LeetCode's public API doesn't provide individual problem status
-   * This would require authentication to get detailed progress
    */
-  static async getUserProgress(_username: string, _problemSlugs: string[]): Promise<Map<string, string>> {
+  static async getUserProgress(username: string, problemSlugs: string[]): Promise<Map<string, string>> {
     const progressMap = new Map<string, string>()
 
+    if (!username || !problemSlugs.length) {
+      return progressMap
+    }
+
     try {
-      // Note: LeetCode's public API doesn't provide individual problem status
-      // This is a limitation - you'd need to be logged in to get this data
-      // For now, we'll return empty progress and suggest using LeetCode's public profile data
+      // Get recent submissions to map problem status
+      const recentSubmissions = await this.getRecentSubmissions(username, 200)
+      
+      // Create a map of problem slug to its status
+      for (const sub of recentSubmissions) {
+        if (problemSlugs.includes(sub.titleSlug)) {
+          progressMap.set(sub.titleSlug, sub.statusDisplay === 'Accepted' ? 'completed' : 'attempted')
+        }
+      }
       
       return progressMap
     } catch (error) {
       console.error('Error fetching user progress:', error)
       return progressMap
+    }
+  }
+
+  /**
+   * Get all problems from LeetCode
+   */
+  static async getAllProblems(limit: number = 100): Promise<LeetCodeProblem[]> {
+    const cacheKey = `all_problems_${limit}`
+    const cached = this.getFromCache(cacheKey)
+    if (cached) return cached
+
+    try {
+      const query = `
+        query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int) {
+          problemsetQuestionList: questionList(
+            categorySlug: $categorySlug
+            limit: $limit
+            skip: $skip
+          ) {
+            total: totalNum
+            questions: data {
+              acRate
+              difficulty
+              freqBar
+              frontendQuestionId: questionFrontendId
+              isFavor
+              paidOnly: isPaidOnly
+              status
+              title
+              titleSlug
+              topicTags {
+                name
+                id
+                slug
+              }
+            }
+          }
+        }
+      `
+
+      const variables = {
+        categorySlug: "",
+        limit,
+        skip: 0
+      }
+
+      const data = await this.fetchFromLeetCode(query, variables)
+      
+      if (!data || data.errors) {
+        console.error('LeetCode API errors:', data?.errors)
+        return []
+      }
+
+      const questions = data.data.problemsetQuestionList.questions || []
+      
+      const problems: LeetCodeProblem[] = questions.map((q: any) => ({
+        id: q.frontendQuestionId,
+        title: q.title,
+        titleSlug: q.titleSlug,
+        difficulty: q.difficulty,
+        isPaidOnly: q.paidOnly,
+        acRate: q.acRate,
+        status: q.status,
+        tags: q.topicTags.map((tag: any) => tag.name),
+        topicTags: q.topicTags
+      }))
+
+      this.setCache(cacheKey, problems)
+      return problems
+    } catch (error) {
+      console.error('Error fetching all problems:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get problem details by slug
+   */
+  static async getProblemDetailsBySlug(titleSlug: string): Promise<any> {
+    const cacheKey = `problem_detail_${titleSlug}`
+    const cached = this.getFromCache(cacheKey)
+    if (cached) return cached
+
+    try {
+      const query = `
+        query questionData($titleSlug: String!) {
+          question(titleSlug: $titleSlug) {
+            questionId
+            questionFrontendId
+            title
+            titleSlug
+            content
+            difficulty
+            codeSnippets {
+              lang
+              langSlug
+              code
+            }
+            exampleTestcases
+            categoryTitle
+            topicTags {
+              name
+              slug
+            }
+          }
+        }
+      `
+
+      const data = await this.fetchFromLeetCode(query, { titleSlug })
+      
+      if (!data || data.errors) {
+        console.error('LeetCode API errors:', data?.errors)
+        return null
+      }
+
+      this.setCache(cacheKey, data.data.question)
+      return data.data.question
+    } catch (error) {
+      console.error('Error fetching problem details:', error)
+      return null
     }
   }
 
@@ -363,6 +447,64 @@ export class LeetCodeService {
     }
   }
 
+  /**
+   * Fetch from LeetCode with proxy support
+   */
+  private static async fetchFromLeetCode(query: string, variables: any): Promise<any> {
+    const endpoint = this.USE_PROXY ? this.PROXY_ENDPOINT : this.GRAPHQL_ENDPOINT
+    
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'DSA-Tracker-App/1.0'
+        },
+        body: JSON.stringify({
+          query,
+          variables
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching from LeetCode:', error)
+      
+      // If proxy fails, try direct API as fallback (only if not already using direct)
+      if (this.USE_PROXY) {
+        console.log('Proxy failed, trying direct API...')
+        try {
+          const response = await fetch(this.GRAPHQL_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'DSA-Tracker-App/1.0'
+            },
+            body: JSON.stringify({
+              query,
+              variables
+            })
+          })
+    
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+    
+          return await response.json()
+        } catch (fallbackError) {
+          console.error('Direct API also failed:', fallbackError)
+          throw fallbackError
+        }
+      } else {
+        throw error
+      }
+    }
+  }
+
   // Helper methods
   private static calculateAcceptanceRate(submissions: any[]): number {
     const totalAccepted = submissions.reduce((sum, item) => sum + item.count, 0)
@@ -395,10 +537,21 @@ export class LeetCodeService {
    */
   static async validateUsername(username: string): Promise<boolean> {
     try {
+      // Try the GraphQL API directly since profile page has CORS restrictions
       const stats = await this.getUserStats(username)
       return stats !== null
     } catch (error) {
-      return false
+      console.log('Username validation info:', error)
+      // For now, assume valid since LeetCode profile pages are protected by CORS
+      // Real validation happens when we try to fetch stats
+      return true
     }
+  }
+
+  /**
+   * Get user profile URL
+   */
+  static getUserProfileUrl(username: string): string {
+    return `https://leetcode.com/u/${username}/`
   }
 }

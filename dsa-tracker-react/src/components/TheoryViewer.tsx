@@ -236,4 +236,4 @@ const TheoryViewer = () => {
   )
 }
 
-export default TheoryViewer
+export default TheoryViewer;

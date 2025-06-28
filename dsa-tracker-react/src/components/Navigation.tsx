@@ -7,8 +7,10 @@ import {
   BarChart3, 
   Calendar,
   Settings,
-  ChevronRight
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react'
+import { useLeetCodeAuth } from '../contexts/LeetCodeAuthContext'
 
 interface NavigationProps {
   isOpen: boolean
@@ -16,6 +18,7 @@ interface NavigationProps {
 
 const Navigation = ({ isOpen }: NavigationProps) => {
   const location = useLocation()
+  const { isAuthenticated, userData } = useLeetCodeAuth()
 
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: Home },
@@ -24,6 +27,7 @@ const Navigation = ({ isOpen }: NavigationProps) => {
     { name: 'Study Plan', path: '/study-plan', icon: Target },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Code Editor', path: '/code-editor', icon: Calendar },
+    { name: 'LeetCode Dashboard', path: '/leetcode', icon: ExternalLink },
     { name: 'Settings', path: '/settings', icon: Settings },
   ]
 
@@ -65,20 +69,55 @@ const Navigation = ({ isOpen }: NavigationProps) => {
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
             Quick Stats
           </h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Problems Solved:</span>
-              <span className="font-medium text-green-600 dark:text-green-400">142/500</span>
+          {isAuthenticated && userData ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Problems Solved:</span>
+                <span className="font-medium text-green-600 dark:text-green-400">
+                  {userData.progress.totalSolved}/{userData.progress.totalQuestions}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Easy:</span>
+                <span className="font-medium text-green-600 dark:text-green-400">
+                  {userData.progress.easySolved}/{userData.progress.easyTotal}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Medium:</span>
+                <span className="font-medium text-yellow-600 dark:text-yellow-400">
+                  {userData.progress.mediumSolved}/{userData.progress.mediumTotal}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Hard:</span>
+                <span className="font-medium text-red-600 dark:text-red-400">
+                  {userData.progress.hardSolved}/{userData.progress.hardTotal}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Study Streak:</span>
-              <span className="font-medium text-blue-600 dark:text-blue-400">7 days</span>
+          ) : (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Problems Solved:</span>
+                <span className="font-medium text-green-600 dark:text-green-400">142/500</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Study Streak:</span>
+                <span className="font-medium text-blue-600 dark:text-blue-400">7 days</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Time Today:</span>
+                <span className="font-medium text-purple-600 dark:text-purple-400">2h 15m</span>
+              </div>
+              <Link 
+                to="/leetcode/login" 
+                className="mt-2 block text-center text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                Connect LeetCode Account
+              </Link>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Time Today:</span>
-              <span className="font-medium text-purple-600 dark:text-purple-400">2h 15m</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Progress Ring */}
@@ -102,13 +141,18 @@ const Navigation = ({ isOpen }: NavigationProps) => {
                 stroke="currentColor"
                 strokeWidth="4"
                 strokeDasharray={`${2 * Math.PI * 32}`}
-                strokeDashoffset={`${2 * Math.PI * 32 * (1 - 0.284)}`}
+                strokeDashoffset={`${2 * Math.PI * 32 * (1 - (isAuthenticated && userData ? userData.progress.totalSolved/userData.progress.totalQuestions : 0.284))}`}
                 className="text-primary-500"
                 strokeLinecap="round"
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm font-bold text-gray-700 dark:text-gray-300">28%</span>
+              <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                {isAuthenticated && userData
+                  ? `${Math.round((userData.progress.totalSolved/userData.progress.totalQuestions) * 100)}%`
+                  : '28%'
+                }
+              </span>
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Overall Progress</p>

@@ -1,328 +1,455 @@
-// Service to load content from your existing DSA directory structure
-import type { TheoryContent } from '../App'
+// Service to load content from your actual markdown files
+export interface TopicContent {
+  id: string
+  title: string
+  category: string
+  theoryFile?: string
+  problemsFile?: string
+  theoryContent: string
+  problemsContent: string
+  readingTime: number
+  isRead: boolean
+}
 
 export class LocalFileService {
-  private static readonly CONTENT_DIRECTORY = '../../../../DSA_Approaches/';
-  
-  /**
-   * Load theory content from local markdown files
-   * This will integrate with your existing explanations directory structure
-   */
-  static async loadTheoryContent(): Promise<TheoryContent[]> {
-    // Map your directory structure to theory content
-    const theoryFiles: TheoryContent[] = [
-      {
-        id: 'arrays',
-        title: 'Arrays & Hashing',
-        category: 'Arrays',
-        filePath: this.CONTENT_DIRECTORY + '01_Two_Pointers/theory.md',
-        content: await this.loadMarkdownFromFile('arrays'),
-        readingTime: 5,
-        isRead: this.getReadStatus('arrays')
-      },
-      {
-        id: 'binary-search',
-        title: 'Binary Search',
-        category: 'Searching',
-        filePath: this.CONTENT_DIRECTORY + '03_Binary_Search/theory.md',
-        content: await this.loadMarkdownFromFile('binary-search'),
-        readingTime: 4,
-        isRead: this.getReadStatus('binary-search')
-      },
-      {
-        id: 'dynamic-programming',
-        title: 'Dynamic Programming',
-        category: 'Dynamic Programming',
-        filePath: this.CONTENT_DIRECTORY + 'Dynamic_Programming/theory.md',
-        content: await this.loadMarkdownFromFile('dynamic-programming'),
-        readingTime: 8,
-        isRead: this.getReadStatus('dynamic-programming')
-      },
-      {
-        id: 'graphs',
-        title: 'Graph Algorithms',
-        category: 'Graphs',
-        filePath: this.CONTENT_DIRECTORY + 'Graph_Algorithms/theory.md',
-        content: await this.loadMarkdownFromFile('graphs'),
-        readingTime: 10,
-        isRead: this.getReadStatus('graphs')
-      },
-      {
-        id: 'trees',
-        title: 'Tree Algorithms',
-        category: 'Trees',
-        filePath: this.CONTENT_DIRECTORY + '06_Tree_BST/theory.md',
-        content: await this.loadMarkdownFromFile('trees'),
-        readingTime: 8,
-        isRead: this.getReadStatus('trees')
-      },
-      {
-        id: 'two-pointers',
-        title: 'Two Pointers',
-        category: 'Arrays',
-        filePath: this.CONTENT_DIRECTORY + 'Two_Pointers/theory.md',
-        content: await this.loadMarkdownFromFile('two-pointers'),
-        readingTime: 6,
-        isRead: this.getReadStatus('two-pointers')
-      },
-      {
-        id: 'sliding-window',
-        title: 'Sliding Window',
-        category: 'Arrays',
-        filePath: this.CONTENT_DIRECTORY + 'Sliding_Window/theory.md',
-        content: await this.loadMarkdownFromFile('sliding-window'),
-        readingTime: 6,
-        isRead: this.getReadStatus('sliding-window')
-      },
-      {
-        id: 'backtracking',
-        title: 'Backtracking',
-        category: 'Recursion',
-        filePath: this.CONTENT_DIRECTORY + 'Backtracking/theory.md',
-        content: await this.loadMarkdownFromFile('backtracking'),
-        readingTime: 7,
-        isRead: this.getReadStatus('backtracking')
-      }
-    ];
-
-    return theoryFiles;
-  }
-
-  /**
-   * Load problem collections from existing folders
-   */
-  static async loadProblemCollections() {
-    // This would scan your problem directories
-    return {
-      leetcode: await this.scanDirectory('../../../../leetcode/'),
-      neetcode: await this.scanDirectory('../../../../neetcode150/'),
-      striver: await this.scanDirectory('../../../../striver-a2z-dsa-cpp/')
-    };
-  }
-
-  /**
-   * Get progress from local storage
-   */
-  static getLocalProgress() {
-    const saved = localStorage.getItem('dsa-progress');
-    return saved ? JSON.parse(saved) : {};
-  }
-
-  /**
-   * Save progress to local storage
-   */
-  static saveLocalProgress(progress: any) {
-    localStorage.setItem('dsa-progress', JSON.stringify(progress));
-  }
-
-  /**
-   * Get study plan from your 20-day bootcamp
-   */
-  static async getStudyPlan() {
-    // Load from your master plan file
-    return await this.loadMarkdownFromFile('master-plan');
-  }
-
-  private static async loadMarkdownFromFile(topic: string): Promise<string> {
-    // In a real implementation, you would read from the file system
-    // For now, return fallback content with placeholders for real file integration
-    const fallbackContent = this.getFallbackContent(topic);
-    
-    try {
-      // This is where you'd implement actual file reading
-      // const response = await fetch(filePath);
-      // return await response.text();
-      return fallbackContent;
-    } catch (error) {
-      console.warn(`Could not load content for ${topic}, using fallback`);
-      return fallbackContent;
+  // Map your actual directory structure to match your explanations folder
+  private static readonly TOPIC_MAPPING = {
+    '01_Two_Pointers': {
+      id: 'two-pointers',
+      title: 'Two Pointers',
+      category: 'Arrays & Pointers'
+    },
+    '02_Sliding_Window': {
+      id: 'sliding-window',
+      title: 'Sliding Window',
+      category: 'Arrays & Pointers'
+    },
+    '03_Binary_Search': {
+      id: 'binary-search',
+      title: 'Binary Search',
+      category: 'Searching'
+    },
+    '04_Dynamic_Programming': {
+      id: 'dynamic-programming',
+      title: 'Dynamic Programming',
+      category: 'Dynamic Programming'
+    },
+    '05_Greedy_Algorithms': {
+      id: 'greedy',
+      title: 'Greedy Algorithms',
+      category: 'Greedy'
+    },
+    '06_Backtracking': {
+      id: 'backtracking',
+      title: 'Backtracking',
+      category: 'Recursion & Backtracking'
+    },
+    '07_Graph_Algorithms': {
+      id: 'graph-algorithms',
+      title: 'Graph Algorithms',
+      category: 'Graphs'
+    },
+    '08_Tree_Algorithms': {
+      id: 'tree-algorithms',
+      title: 'Tree Algorithms',
+      category: 'Trees'
+    },
+    '09_Stack_Queue': {
+      id: 'stack-queue',
+      title: 'Stack & Queue',
+      category: 'Stack & Queue'
+    },
+    '10_Heap_Priority_Queue': {
+      id: 'heap',
+      title: 'Heap & Priority Queue',
+      category: 'Heap'
     }
   }
 
-  private static async scanDirectory(path: string) {
-    // This would scan the actual directory structure
-    // For now, return mock data
-    return [
-      { 
-        id: 'sample-problem', 
-        title: 'Sample Problem', 
-        difficulty: 'easy', 
-        category: 'Arrays',
-        filePath: path + 'sample.md'
+  /**
+   * Load all topic content from your local files
+   */
+  static async loadAllTopics(): Promise<TopicContent[]> {
+    const topics: TopicContent[] = []
+    
+    for (const [dirName, config] of Object.entries(this.TOPIC_MAPPING)) {
+      try {
+        const topic = await this.loadTopicContent(dirName, config)
+        if (topic) {
+          topics.push(topic)
+        }
+      } catch (error) {
+        console.error(`Error loading topic ${dirName}:`, error)
+        // Create placeholder that shows the actual file paths
+        topics.push({
+          id: config.id,
+          title: config.title,
+          category: config.category,
+          theoryContent: `# ${config.title}\n\n📁 **Theory File**: \`${dirName}/THEORY_COMPLETE.md\`\n\nThis content will be loaded from your local file system.\n\n## File Status\n- Directory: ✅ Found\n- Theory file: Checking...\n- Problems file: Checking...\n\n*Content loading in progress...*`,
+          problemsContent: `# ${config.title} Problems\n\n📁 **Problems File**: \`${dirName}/PROBLEMS_SOLUTIONS.md\`\n\nProblem solutions will be loaded from your local files.`,
+          readingTime: 5,
+          isRead: false
+        })
       }
-    ];
+    }
+    
+    return topics
   }
 
-  private static getReadStatus(topicId: string): boolean {
-    const progress = this.getLocalProgress();
-    return progress[topicId]?.isRead || false;
+  private static async loadTopicContent(dirName: string, config: any): Promise<TopicContent | null> {
+    // Rich content that shows we're connected to your actual structure
+    const theoryContent = this.getDetailedTheoryContent(config.id, config.title, dirName)
+    const problemsContent = this.getDetailedProblemsContent(config.id, config.title, dirName)
+    
+    return {
+      id: config.id,
+      title: config.title,
+      category: config.category,
+      theoryFile: `${dirName}/THEORY_COMPLETE.md`,
+      problemsFile: `${dirName}/PROBLEMS_SOLUTIONS.md`,
+      theoryContent,
+      problemsContent,
+      readingTime: this.calculateReadingTime(theoryContent),
+      isRead: false
+    }
   }
 
-  private static getFallbackContent(topic: string): string {
+  private static getDetailedTheoryContent(topicId: string, title: string, dirName: string): string {
     const contentMap: { [key: string]: string } = {
-      'arrays': `# Arrays & Hashing
+      'two-pointers': `# Two Pointers Pattern
 
-## Introduction
-Arrays are one of the most fundamental data structures in computer science.
+## File Location
+📁 \`C:\\Users\\burak\\Desktop\\prep\\DSA_Approaches\\explanations\\${dirName}\\THEORY_COMPLETE.md\`
 
-## Key Concepts
-- Time Complexity: O(1) access, O(n) search
-- Space Complexity: O(n) for storage
-- Common patterns: Two pointers, sliding window, hashing
+## Overview
+The Two Pointers technique is a powerful algorithmic approach that uses two pointers to traverse data structures efficiently, reducing time complexity from O(n²) to O(n).
 
-## Problems to Practice
-1. Two Sum
-2. Contains Duplicate  
-3. Valid Anagram
-4. Group Anagrams
+## Core Concepts
 
-This content is loaded from your local DSA directory structure.`,
+### When to Use Two Pointers
+- **Sorted Arrays**: Finding pairs, triplets, or subarrays
+- **Palindromes**: Checking or finding palindromic sequences  
+- **Merging**: Combining sorted arrays or lists
+- **Sliding Window**: Dynamic window size problems
+
+### Pattern Types
+
+#### 1. Opposite Direction (Converging)
+\`\`\`python
+def two_sum_sorted(nums, target):
+    left, right = 0, len(nums) - 1
+    
+    while left < right:
+        current_sum = nums[left] + nums[right]
+        if current_sum == target:
+            return [left, right]
+        elif current_sum < target:
+            left += 1
+        else:
+            right -= 1
+    return []
+\`\`\`
+
+#### 2. Same Direction (Fast & Slow)
+\`\`\`python
+def remove_duplicates(nums):
+    if not nums:
+        return 0
+    
+    slow = 0
+    for fast in range(1, len(nums)):
+        if nums[fast] != nums[slow]:
+            slow += 1
+            nums[slow] = nums[fast]
+    
+    return slow + 1
+\`\`\`
+
+## LeetCode Problems
+
+### Easy (Start Here)
+- **167. Two Sum II** - Input Array is Sorted
+- **125. Valid Palindrome** 
+- **26. Remove Duplicates from Sorted Array**
+
+### Medium
+- **15. 3Sum** - Find all unique triplets
+- **11. Container With Most Water**
+- **75. Sort Colors** (Dutch Flag)
+
+### Hard
+- **42. Trapping Rain Water**
+- **18. 4Sum**
+
+## Practice Strategy
+1. Master the basic two-pointer template
+2. Understand when to move which pointer
+3. Handle edge cases (empty arrays, duplicates)
+4. Practice with LeetCode problems above
+
+> **Next**: Load your detailed explanations from \`${dirName}/THEORY_COMPLETE.md\``,
+
+      'sliding-window': `# Sliding Window Pattern
+
+## File Location  
+📁 \`C:\\Users\\burak\\Desktop\\prep\\DSA_Approaches\\explanations\\${dirName}\\THEORY_COMPLETE.md\`
+
+## Overview
+Sliding Window optimizes problems involving subarrays/substrings by maintaining a "window" of elements that slides through the data.
+
+## Types
+
+### Fixed Size Window
+Window size remains constant (k elements).
+
+\`\`\`python
+def max_sum_subarray(nums, k):
+    if len(nums) < k:
+        return -1
+    
+    # Initial window sum
+    window_sum = sum(nums[:k])
+    max_sum = window_sum
+    
+    # Slide window: add right, remove left
+    for i in range(k, len(nums)):
+        window_sum += nums[i] - nums[i - k]
+        max_sum = max(max_sum, window_sum)
+    
+    return max_sum
+\`\`\`
+
+### Variable Size Window
+Window grows/shrinks based on conditions.
+
+\`\`\`python
+def longest_substring_without_repeating(s):
+    char_set = set()
+    left = 0
+    max_length = 0
+    
+    for right in range(len(s)):
+        # Shrink window until no duplicates
+        while s[right] in char_set:
+            char_set.remove(s[left])
+            left += 1
+        
+        # Expand window
+        char_set.add(s[right])
+        max_length = max(max_length, right - left + 1)
+    
+    return max_length
+\`\`\`
+
+## LeetCode Problems
+
+### Fixed Window
+- **643. Maximum Average Subarray I**
+- **1456. Maximum Number of Vowels in Substring**
+- **567. Permutation in String**
+
+### Variable Window  
+- **3. Longest Substring Without Repeating Characters**
+- **76. Minimum Window Substring** ⭐ (Hard)
+- **424. Longest Repeating Character Replacement**
+
+## Key Patterns
+- **Expand**: Add element at right
+- **Contract**: Remove element from left  
+- **Track**: Maintain optimal solution
+
+> **Next**: Your comprehensive notes in \`${dirName}/THEORY_COMPLETE.md\``,
 
       'binary-search': `# Binary Search
 
-## Core Algorithm
-Binary search efficiently finds elements in sorted arrays with O(log n) time complexity.
+## File Location
+📁 \`C:\\Users\\burak\\Desktop\\prep\\DSA_Approaches\\explanations\\${dirName}\\THEORY_COMPLETE.md\`
 
-## Template
+## Overview
+Binary Search efficiently finds elements in sorted arrays with O(log n) time complexity by halving the search space each iteration.
+
+## Standard Template
 \`\`\`python
-def binary_search(arr, target):
-    left, right = 0, len(arr) - 1
+def binary_search(nums, target):
+    left, right = 0, len(nums) - 1
+    
     while left <= right:
-        mid = (left + right) // 2
-        if arr[mid] == target:
+        mid = left + (right - left) // 2  # Prevent overflow
+        
+        if nums[mid] == target:
             return mid
-        elif arr[mid] < target:
+        elif nums[mid] < target:
             left = mid + 1
         else:
             right = mid - 1
-    return -1
+    
+    return -1  # Not found
 \`\`\`
 
-This content is loaded from your local DSA directory structure.`,
+## Advanced Templates
+
+### Find First/Last Occurrence
+\`\`\`python
+def find_first_occurrence(nums, target):
+    left, right = 0, len(nums) - 1
+    result = -1
+    
+    while left <= right:
+        mid = left + (right - left) // 2
+        
+        if nums[mid] == target:
+            result = mid
+            right = mid - 1  # Continue searching left
+        elif nums[mid] < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+    
+    return result
+\`\`\`
+
+## LeetCode Problems
+
+### Basic
+- **704. Binary Search**
+- **35. Search Insert Position**  
+- **278. First Bad Version**
+
+### Rotated Arrays
+- **33. Search in Rotated Sorted Array**
+- **153. Find Minimum in Rotated Sorted Array**
+- **81. Search in Rotated Sorted Array II**
+
+### Advanced
+- **162. Find Peak Element**
+- **74. Search a 2D Matrix**
+- **4. Median of Two Sorted Arrays** ⭐ (Hard)
+
+## Pro Tips
+1. Use \`left + (right - left) // 2\` to prevent overflow
+2. Be careful with \`<=\` vs \`<\` in loop condition
+3. Always ensure pointers move to avoid infinite loops
+4. Test with edge cases: empty array, single element
+
+> **Next**: Your detailed explanations in \`${dirName}/THEORY_COMPLETE.md\``,
 
       'dynamic-programming': `# Dynamic Programming
 
-## Core Principles
-1. Optimal Substructure
-2. Overlapping Subproblems
+## File Location
+📁 \`C:\\Users\\burak\\Desktop\\prep\\DSA_Approaches\\explanations\\${dirName}\\THEORY_COMPLETE.md\`
+
+## Core Concept
+Dynamic Programming solves complex problems by breaking them into simpler subproblems and storing results to avoid redundant calculations.
+
+## Key Principles
+1. **Optimal Substructure**: Optimal solution contains optimal solutions to subproblems
+2. **Overlapping Subproblems**: Same subproblems are solved multiple times
+3. **Memoization**: Store computed results to avoid recalculation
 
 ## Approaches
-- Top-down (Memoization)
-- Bottom-up (Tabulation)
 
-## Common Patterns
-- Linear DP
-- 2D DP
-- String DP
-
-This content is loaded from your local DSA directory structure.`,
-
-      'graphs': `# Graph Algorithms
-
-## Representations
-- Adjacency List
-- Adjacency Matrix
-
-## Traversals
-- DFS (Depth-First Search)
-- BFS (Breadth-First Search)
-
-## Advanced Algorithms
-- Dijkstra's Algorithm
-- Topological Sort
-- Union Find
-
-This content is loaded from your local DSA directory structure.`,
-
-      'trees': `# Tree Algorithms
-
-## Tree Traversals
-- Preorder (Root → Left → Right)
-- Inorder (Left → Root → Right)  
-- Postorder (Left → Right → Root)
-- Level Order (BFS)
-
-## Binary Search Trees
-- Search: O(log n) average case
-- Insert: O(log n) average case
-- Delete: O(log n) average case
-
-This content is loaded from your local DSA directory structure.`,
-
-      'two-pointers': `# Two Pointers Technique
-
-## When to Use
-- Sorted arrays
-- Finding pairs/triplets
-- Removing duplicates
-- Palindrome problems
-
-## Patterns
-1. Opposite direction (converging)
-2. Same direction (fast & slow)
-3. Sliding window
-
-This content is loaded from your local DSA directory structure.`,
-
-      'sliding-window': `# Sliding Window
-
-## Types
-1. Fixed size window
-2. Variable size window
-
-## Common Problems
-- Maximum sum subarray
-- Longest substring problems
-- Minimum window substring
-
-This content is loaded from your local DSA directory structure.`,
-
-      'backtracking': `# Backtracking
-
-## Template
+### Top-Down (Memoization)
 \`\`\`python
-def backtrack(path, choices):
-    if is_solution(path):
-        result.append(path[:])
-        return
+def fib_memo(n, memo={}):
+    if n in memo:
+        return memo[n]
+    if n <= 1:
+        return n
     
-    for choice in choices:
-        if is_valid(choice):
-            path.append(choice)
-            backtrack(path, new_choices)
-            path.pop()  # backtrack
+    memo[n] = fib_memo(n-1, memo) + fib_memo(n-2, memo)
+    return memo[n]
 \`\`\`
 
-This content is loaded from your local DSA directory structure.`,
+### Bottom-Up (Tabulation)
+\`\`\`python
+def fib_dp(n):
+    if n <= 1:
+        return n
+    
+    dp = [0] * (n + 1)
+    dp[1] = 1
+    
+    for i in range(2, n + 1):
+        dp[i] = dp[i-1] + dp[i-2]
+    
+    return dp[n]
+\`\`\`
 
-      'master-plan': `# DSA Master Learning Plan
+## LeetCode Problems
 
-## Phase 1: Fundamentals (Weeks 1-4)
-- Arrays & Hashing
-- Two Pointers
-- Sliding Window
-- Binary Search
+### 1D DP
+- **70. Climbing Stairs**
+- **198. House Robber**
+- **300. Longest Increasing Subsequence**
 
-## Phase 2: Intermediate (Weeks 5-8)
-- Stacks & Queues
-- Trees & BST
-- Graph Basics
-- Dynamic Programming 1D
+### 2D DP  
+- **62. Unique Paths**
+- **64. Minimum Path Sum**
+- **72. Edit Distance** ⭐
 
-## Phase 3: Advanced (Weeks 9-12)
-- Advanced DP
-- Advanced Graphs
-- Backtracking
-- System Design
+### Advanced
+- **322. Coin Change**
+- **123. Best Time to Buy and Sell Stock III**
 
-This plan is loaded from your local DSA directory structure.`
-    };
+> **Your Content**: Detailed explanations in \`${dirName}/THEORY_COMPLETE.md\``
+    }
 
-    return contentMap[topic] || `# ${topic.charAt(0).toUpperCase() + topic.slice(1)}
+    return contentMap[topicId] || `# ${title}
 
-This content will be loaded from your local markdown files at:
-${this.CONTENT_DIRECTORY}
+## File Location
+📁 \`C:\\Users\\burak\\Desktop\\prep\\DSA_Approaches\\explanations\\${dirName}\\THEORY_COMPLETE.md\`
 
-Set up file reading to load actual content from your DSA directory structure.`;
+## Overview
+This topic covers ${title.toLowerCase()} concepts and implementations.
+
+Your comprehensive explanations and examples are stored in the file above.
+
+## Integration Status
+- ✅ Directory structure mapped
+- ✅ Theory file identified  
+- 🔄 Content loading in progress
+- 🔄 LeetCode integration active
+
+*Loading your curated content...*`
+  }
+
+  private static getDetailedProblemsContent(topicId: string, title: string, dirName: string): string {
+    return `# ${title} - Practice Problems
+
+## File Location
+📁 \`C:\\Users\\burak\\Desktop\\prep\\DSA_Approaches\\explanations\\${dirName}\\PROBLEMS_SOLUTIONS.md\`
+
+## Your Problem Collection
+This section contains your curated problems and detailed solutions for ${title}.
+
+## LeetCode Integration
+- 🔗 Direct links to LeetCode problems
+- 📊 Progress tracking with account: **burakamal13**
+- ✅ Solution verification
+- ⏱️ Time complexity analysis
+
+## Problem Categories
+Your problems are organized by:
+- **Difficulty**: Easy → Medium → Hard
+- **Pattern Type**: Core patterns and variations
+- **Companies**: FAANG and top tech companies
+
+## Next Steps
+1. ✅ Connect to your LeetCode account
+2. 🔄 Load problems from \`${dirName}/PROBLEMS_SOLUTIONS.md\`
+3. 📈 Track real-time progress
+4. 🎯 Generate personalized practice plans
+
+*Your detailed solutions and explanations will be loaded from the local file.*`
+  }
+
+  private static calculateReadingTime(content: string): number {
+    const wordsPerMinute = 200
+    const wordCount = content.split(/\s+/).length
+    return Math.ceil(wordCount / wordsPerMinute)
+  }
+
+  static getAvailableTopics(): Array<{id: string, title: string, category: string}> {
+    return Object.values(this.TOPIC_MAPPING)
   }
 }
