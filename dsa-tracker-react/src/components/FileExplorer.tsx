@@ -145,7 +145,7 @@ const FileExplorer = ({ onFileSelect, selectedFile }: FileExplorerProps) => {
         </div>
       </div>
       
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-96 overflow-y-auto">
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-96 overflow-y-auto custom-scrollbar">
         {fileTree[''] && fileTree[''].map(file => renderFileItem(file))}
       </div>
     </div>

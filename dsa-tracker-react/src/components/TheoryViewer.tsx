@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { BookOpen, Clock, CheckCircle, ArrowLeft, ArrowRight, Search, FileText } from 'lucide-react'
+import { BookOpen, Clock, CheckCircle, ArrowLeft, ArrowRight, Search, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ContentService } from '../services/ContentService'
 import FileExplorer from './FileExplorer'
 import type { TheoryContent } from '../App'
@@ -16,6 +16,7 @@ const TheoryViewer = () => {
   const [fileContent, setFileContent] = useState<string>('')
   const [loadingFile, setLoadingFile] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   // Load theory files using ContentService
   useEffect(() => {
@@ -81,38 +82,57 @@ const TheoryViewer = () => {
   return (
     <div className="flex h-[calc(100vh-8rem)] space-x-6">
       {/* Sidebar */}
-      <div className="w-80 card h-fit max-h-full overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 pb-4 border-b border-gray-200 dark:border-gray-700">
+      <div className={`${isSidebarCollapsed ? 'w-12' : 'w-80'} card h-fit max-h-full overflow-hidden flex flex-col transition-all duration-300`}>
+        <div className="bg-white dark:bg-gray-800 pb-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Theory & Concepts
-            </h2>
+            {!isSidebarCollapsed && (
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Theory & Concepts
+              </h2>
+            )}
             
-            {/* Search Icon/Bar */}
-            <div className="flex items-center">
-              {!isSearchOpen ? (
-                <button
-                  onClick={() => setIsSearchOpen(true)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                >
-                  <Search className="w-5 h-5" />
-                </button>
-              ) : (
-                <div className="relative flex-1 max-w-xs">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onBlur={() => {
-                      if (!searchTerm) setIsSearchOpen(false)
-                    }}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                    autoFocus
-                  />
+            <div className="flex items-center space-x-2 ml-auto">
+              {/* Search Icon/Bar */}
+              {!isSidebarCollapsed && (
+                <div className="flex items-center">
+                  {!isSearchOpen ? (
+                    <button
+                      onClick={() => setIsSearchOpen(true)}
+                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <div className="relative flex-1 max-w-xs">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onBlur={() => {
+                          if (!searchTerm) setIsSearchOpen(false)
+                        }}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                        autoFocus
+                      />
+                    </div>
+                  )}
                 </div>
               )}
+              
+              {/* Collapse/Expand Button */}
+              <button
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {isSidebarCollapsed ? (
+                  <ChevronRight className="w-5 h-5" />
+                ) : (
+                  <ChevronLeft className="w-5 h-5" />
+                )}
+              </button>
             </div>
           </div>
           
@@ -141,48 +161,53 @@ const TheoryViewer = () => {
           </div>
         </div>
 
-        {/* Content based on view mode */}
-        {viewMode === 'topics' ? (
-          /* File List */
-          <div className="mt-4 space-y-2">
-            {filteredFiles.map(file => (
-              <button
-                key={file.id}
-                onClick={() => {
-                  setSelectedFile(file)
-                  setSelectedFilePath('')
-                  setFileContent('')
-                }}
-                className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
-                  selectedFile?.id === file.id && !selectedFilePath
-                    ? 'bg-primary-50 border-l-4 border-primary-500 dark:bg-primary-900/20'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-medium text-gray-900 dark:text-white text-sm">
-                    {file.title}
-                  </h3>
-                  {file.isRead && <CheckCircle className="w-4 h-4 text-green-500" />}
-                </div>
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                  <span>{file.category}</span>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{file.readingTime}m</span>
+        {/* Scrollable Content */}
+        {!isSidebarCollapsed && (
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {/* Content based on view mode */}
+          {viewMode === 'topics' ? (
+            /* File List */
+            <div className="p-4 space-y-2">
+              {filteredFiles.map(file => (
+                <button
+                  key={file.id}
+                  onClick={() => {
+                    setSelectedFile(file)
+                    setSelectedFilePath('')
+                    setFileContent('')
+                  }}
+                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
+                    selectedFile?.id === file.id && !selectedFilePath
+                      ? 'bg-primary-50 border-l-4 border-primary-500 dark:bg-primary-900/20'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-medium text-gray-900 dark:text-white text-sm">
+                      {file.title}
+                    </h3>
+                    {file.isRead && <CheckCircle className="w-4 h-4 text-green-500" />}
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          /* File Explorer */
-          <div className="mt-4">
-            <FileExplorer 
-              onFileSelect={handleFileSelect}
-              selectedFile={selectedFilePath}
-            />
-          </div>
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>{file.category}</span>
+                    <div className="flex items-center space-x-1">
+                      <Clock className="w-3 h-3" />
+                      <span>{file.readingTime}m</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            /* File Explorer */
+            <div className="p-4">
+              <FileExplorer 
+                onFileSelect={handleFileSelect}
+                selectedFile={selectedFilePath}
+              />
+            </div>
+          )}
+        </div>
         )}
       </div>
 
