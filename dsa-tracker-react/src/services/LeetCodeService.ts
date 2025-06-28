@@ -44,10 +44,8 @@ export interface LeetCodeSubmission {
 }
 
 export class LeetCodeService {
-  private static readonly USE_PROXY = true
-  private static readonly LEETCODE_API_BASE = 'https://leetcode.com'
-  private static readonly GRAPHQL_ENDPOINT = `${this.LEETCODE_API_BASE}/graphql`
-  private static readonly PROXY_ENDPOINT = 'http://localhost:3001/api/leetcode/graphql'
+  // Use our backend API instead of direct LeetCode API to avoid CORS issues
+  private static readonly API_BASE = '/api/leetcode'
   
   // Cache for storing fetched data to reduce API calls
   private static cache: Map<string, { data: any; timestamp: number }> = new Map()
@@ -62,55 +60,12 @@ export class LeetCodeService {
     if (cached) return cached
 
     try {
-      const query = `
-        query getUserProfile($username: String!) {
-          matchedUser(username: $username) {
-            submitStats: submitStatsGlobal {
-              acSubmissionNum {
-                difficulty
-                count
-                submissions
-              }
-            }
-            profile {
-              ranking
-            }
-          }
-          allQuestionsCount {
-            difficulty
-            count
-          }
-        }
-      `
-
-      const data = await this.fetchFromLeetCode(query, { username })
-      
-      if (!data || data.errors) {
-        console.error('LeetCode API errors:', data?.errors)
-        return null
+      const response = await fetch(`${this.API_BASE}/stats/${username}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const userData = data.data.matchedUser
-      const allQuestions = data.data.allQuestionsCount
-
-      if (!userData) {
-        throw new Error('User not found')
-      }
-
-      const stats: LeetCodeStats = {
-        totalSolved: userData.submitStats.acSubmissionNum.reduce((sum: number, item: any) => sum + item.count, 0),
-        totalQuestions: allQuestions.reduce((sum: number, item: any) => sum + item.count, 0),
-        easySolved: userData.submitStats.acSubmissionNum.find((item: any) => item.difficulty === 'Easy')?.count || 0,
-        easyTotal: allQuestions.find((item: any) => item.difficulty === 'Easy')?.count || 0,
-        mediumSolved: userData.submitStats.acSubmissionNum.find((item: any) => item.difficulty === 'Medium')?.count || 0,
-        mediumTotal: allQuestions.find((item: any) => item.difficulty === 'Medium')?.count || 0,
-        hardSolved: userData.submitStats.acSubmissionNum.find((item: any) => item.difficulty === 'Hard')?.count || 0,
-        hardTotal: allQuestions.find((item: any) => item.difficulty === 'Hard')?.count || 0,
-        ranking: userData.profile?.ranking || 0,
-        acceptanceRate: this.calculateAcceptanceRate(userData.submitStats.acSubmissionNum),
-        acSubmissionNum: userData.submitStats.acSubmissionNum
-      }
-
+      const stats = await response.json()
       this.setCache(cacheKey, stats)
       return stats
     } catch (error) {
@@ -128,52 +83,12 @@ export class LeetCodeService {
     if (cached) return cached
 
     try {
-      const query = `
-        query getRecentSubmissions($username: String!, $limit: Int!) {
-          matchedUser(username: $username) {
-            submitStats: submitStatsGlobal {
-              acSubmissionNum {
-                difficulty
-                count
-                submissions
-              }
-            }
-            recentSubmissionList(limit: $limit) {
-              title
-              titleSlug
-              timestamp
-              statusDisplay
-              lang
-              runtime
-              memory
-            }
-          }
-        }
-      `
-
-      const data = await this.fetchFromLeetCode(query, { username, limit })
-      
-      if (!data || data.errors) {
-        console.error('LeetCode API errors:', data?.errors)
-        return []
+      const response = await fetch(`${this.API_BASE}/submissions/${username}?limit=${limit}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const userData = data.data.matchedUser
-      if (!userData || !userData.recentSubmissionList) {
-        return []
-      }
-
-      const submissions: LeetCodeSubmission[] = userData.recentSubmissionList.map((sub: any, index: number) => ({
-        id: `${sub.titleSlug}_${sub.timestamp}_${index}`,
-        title: sub.title,
-        titleSlug: sub.titleSlug,
-        timestamp: parseInt(sub.timestamp),
-        statusDisplay: sub.statusDisplay,
-        lang: sub.lang,
-        runtime: sub.runtime,
-        memory: sub.memory
-      }))
-
+      const submissions = await response.json()
       this.setCache(cacheKey, submissions)
       return submissions
     } catch (error) {
@@ -191,65 +106,12 @@ export class LeetCodeService {
     if (cached) return cached
 
     try {
-      const query = `
-        query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
-          problemsetQuestionList: questionList(
-            categorySlug: $categorySlug
-            limit: $limit
-            skip: $skip
-            filters: $filters
-          ) {
-            total: totalNum
-            questions: data {
-              acRate
-              difficulty
-              freqBar
-              frontendQuestionId: questionFrontendId
-              isFavor
-              paidOnly: isPaidOnly
-              status
-              title
-              titleSlug
-              topicTags {
-                name
-                id
-                slug
-              }
-            }
-          }
-        }
-      `
-
-      const variables = {
-        categorySlug: "",
-        limit,
-        skip: 0,
-        filters: {
-          tags: [tag]
-        }
+      const response = await fetch(`${this.API_BASE}/problems/${tag}?limit=${limit}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data = await this.fetchFromLeetCode(query, variables)
-      
-      if (!data || data.errors) {
-        console.error('LeetCode API errors:', data?.errors)
-        return []
-      }
-
-      const questions = data.data.problemsetQuestionList.questions || []
-      
-      const problems: LeetCodeProblem[] = questions.map((q: any) => ({
-        id: q.frontendQuestionId,
-        title: q.title,
-        titleSlug: q.titleSlug,
-        difficulty: q.difficulty,
-        isPaidOnly: q.paidOnly,
-        acRate: q.acRate,
-        status: q.status,
-        tags: q.topicTags.map((tag: any) => tag.name),
-        topicTags: q.topicTags
-      }))
-
+      const problems = await response.json()
       this.setCache(cacheKey, problems)
       return problems
     } catch (error) {
@@ -259,149 +121,24 @@ export class LeetCodeService {
   }
 
   /**
-   * Get user's progress on specific problems
+   * Get daily challenge
    */
-  static async getUserProgress(username: string, problemSlugs: string[]): Promise<Map<string, string>> {
-    const progressMap = new Map<string, string>()
-
-    if (!username || !problemSlugs.length) {
-      return progressMap
-    }
-
-    try {
-      // Get recent submissions to map problem status
-      const recentSubmissions = await this.getRecentSubmissions(username, 200)
-      
-      // Create a map of problem slug to its status
-      for (const sub of recentSubmissions) {
-        if (problemSlugs.includes(sub.titleSlug)) {
-          progressMap.set(sub.titleSlug, sub.statusDisplay === 'Accepted' ? 'completed' : 'attempted')
-        }
-      }
-      
-      return progressMap
-    } catch (error) {
-      console.error('Error fetching user progress:', error)
-      return progressMap
-    }
-  }
-
-  /**
-   * Get all problems from LeetCode
-   */
-  static async getAllProblems(limit: number = 100): Promise<LeetCodeProblem[]> {
-    const cacheKey = `all_problems_${limit}`
+  static async getDailyChallenge(): Promise<LeetCodeProblem | null> {
+    const cacheKey = 'daily_challenge'
     const cached = this.getFromCache(cacheKey)
     if (cached) return cached
 
     try {
-      const query = `
-        query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int) {
-          problemsetQuestionList: questionList(
-            categorySlug: $categorySlug
-            limit: $limit
-            skip: $skip
-          ) {
-            total: totalNum
-            questions: data {
-              acRate
-              difficulty
-              freqBar
-              frontendQuestionId: questionFrontendId
-              isFavor
-              paidOnly: isPaidOnly
-              status
-              title
-              titleSlug
-              topicTags {
-                name
-                id
-                slug
-              }
-            }
-          }
-        }
-      `
-
-      const variables = {
-        categorySlug: "",
-        limit,
-        skip: 0
+      const response = await fetch(`${this.API_BASE}/daily`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data = await this.fetchFromLeetCode(query, variables)
-      
-      if (!data || data.errors) {
-        console.error('LeetCode API errors:', data?.errors)
-        return []
-      }
-
-      const questions = data.data.problemsetQuestionList.questions || []
-      
-      const problems: LeetCodeProblem[] = questions.map((q: any) => ({
-        id: q.frontendQuestionId,
-        title: q.title,
-        titleSlug: q.titleSlug,
-        difficulty: q.difficulty,
-        isPaidOnly: q.paidOnly,
-        acRate: q.acRate,
-        status: q.status,
-        tags: q.topicTags.map((tag: any) => tag.name),
-        topicTags: q.topicTags
-      }))
-
-      this.setCache(cacheKey, problems)
-      return problems
+      const daily = await response.json()
+      this.setCache(cacheKey, daily)
+      return daily
     } catch (error) {
-      console.error('Error fetching all problems:', error)
-      return []
-    }
-  }
-
-  /**
-   * Get problem details by slug
-   */
-  static async getProblemDetailsBySlug(titleSlug: string): Promise<any> {
-    const cacheKey = `problem_detail_${titleSlug}`
-    const cached = this.getFromCache(cacheKey)
-    if (cached) return cached
-
-    try {
-      const query = `
-        query questionData($titleSlug: String!) {
-          question(titleSlug: $titleSlug) {
-            questionId
-            questionFrontendId
-            title
-            titleSlug
-            content
-            difficulty
-            codeSnippets {
-              lang
-              langSlug
-              code
-            }
-            exampleTestcases
-            categoryTitle
-            topicTags {
-              name
-              slug
-            }
-          }
-        }
-      `
-
-      const data = await this.fetchFromLeetCode(query, { titleSlug })
-      
-      if (!data || data.errors) {
-        console.error('LeetCode API errors:', data?.errors)
-        return null
-      }
-
-      this.setCache(cacheKey, data.data.question)
-      return data.data.question
-    } catch (error) {
-      console.error('Error fetching problem details:', error)
+      console.error('Error fetching daily challenge:', error)
       return null
     }
   }
@@ -447,71 +184,7 @@ export class LeetCodeService {
     }
   }
 
-  /**
-   * Fetch from LeetCode with proxy support
-   */
-  private static async fetchFromLeetCode(query: string, variables: any): Promise<any> {
-    const endpoint = this.USE_PROXY ? this.PROXY_ENDPOINT : this.GRAPHQL_ENDPOINT
-    
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DSA-Tracker-App/1.0'
-        },
-        body: JSON.stringify({
-          query,
-          variables
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error('Error fetching from LeetCode:', error)
-      
-      // If proxy fails, try direct API as fallback (only if not already using direct)
-      if (this.USE_PROXY) {
-        console.log('Proxy failed, trying direct API...')
-        try {
-          const response = await fetch(this.GRAPHQL_ENDPOINT, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': 'DSA-Tracker-App/1.0'
-            },
-            body: JSON.stringify({
-              query,
-              variables
-            })
-          })
-    
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-          }
-    
-          return await response.json()
-        } catch (fallbackError) {
-          console.error('Direct API also failed:', fallbackError)
-          throw fallbackError
-        }
-      } else {
-        throw error
-      }
-    }
-  }
-
   // Helper methods
-  private static calculateAcceptanceRate(submissions: any[]): number {
-    const totalAccepted = submissions.reduce((sum, item) => sum + item.count, 0)
-    const totalSubmissions = submissions.reduce((sum, item) => sum + item.submissions, 0)
-    return totalSubmissions > 0 ? Math.round((totalAccepted / totalSubmissions) * 100) : 0
-  }
-
   private static getFromCache(key: string): any {
     const cached = this.cache.get(key)
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
@@ -537,14 +210,11 @@ export class LeetCodeService {
    */
   static async validateUsername(username: string): Promise<boolean> {
     try {
-      // Try the GraphQL API directly since profile page has CORS restrictions
       const stats = await this.getUserStats(username)
       return stats !== null
     } catch (error) {
       console.log('Username validation info:', error)
-      // For now, assume valid since LeetCode profile pages are protected by CORS
-      // Real validation happens when we try to fetch stats
-      return true
+      return false
     }
   }
 

@@ -4,7 +4,7 @@
  */
 
 const LEETCODE_GRAPHQL_ENDPOINT = 'https://leetcode.com/graphql';
-const LEETCODE_PROXY_ENDPOINT = 'http://localhost:3030/api/leetcode';
+const LEETCODE_PROXY_ENDPOINT = 'http://localhost:5173/api/leetcode';
 
 interface LeetCodeUserProfile {
   username: string;
@@ -78,7 +78,6 @@ query getUserProfile($username: String!) {
       school
       starRating
       skillTags
-      location
     }
     submitStats: submitStatsGlobal {
       acSubmissionNum {
@@ -315,9 +314,9 @@ export const fetchLeetCodeUserData = async (username: string): Promise<LeetCodeU
         userAvatar: userData.profile.userAvatar,
         ranking: userData.profile.ranking,
         reputation: userData.profile.reputation,
-        githubUrl: '', // Social URLs no longer available in API
-        linkedinUrl: '',
-        twitterUrl: '',
+        githubUrl: userData.githubUrl || '',
+        linkedinUrl: userData.linkedinUrl || '',
+        twitterUrl: userData.twitterUrl || '',
         websiteUrl: userData.profile.websites?.[0] || '',
       },
       progress: {
@@ -413,16 +412,6 @@ export const fetchLeetCodeProblems = async (
 };
 
 /**
- * NOTE: Social media URLs are no longer available in the LeetCode API
- * This function is kept for reference but is no longer used
- */
-// const extractSocialUrl = (socialAccounts: any[] | null, provider: string): string => {
-//   if (!socialAccounts) return '';
-//   const account = socialAccounts.find((acc: any) => acc.provider === provider);
-//   return account ? account.profileUrl : '';
-// };
-
-/**
  * Helper function to make GraphQL requests to LeetCode
  */
 const fetchFromLeetCode = async (query: string, variables: any) => {
@@ -447,26 +436,25 @@ const fetchFromLeetCode = async (query: string, variables: any) => {
       variables,
     });
     
-    // Try using the proxy server first, which is more reliable
+    // First try direct LeetCode API endpoint
     let response;
     try {
-      console.log("Using local proxy server for LeetCode API...");
+      response = await fetch(LEETCODE_GRAPHQL_ENDPOINT, {
+        method: 'POST',
+        headers,
+        body,
+        mode: 'cors',
+        signal: controller.signal,
+      });
+    } catch (directError) {
+      // If direct access fails, try through our proxy server
+      console.log("Direct LeetCode API access failed, trying proxy server...");
       response = await fetch(LEETCODE_PROXY_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ query, variables }),
-        signal: controller.signal,
-      });
-    } catch (proxyError) {
-      // Fallback to direct API only if proxy fails
-      console.log("Proxy server failed, trying direct LeetCode API access...");
-      response = await fetch(LEETCODE_GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers,
-        body,
-        mode: 'cors',
         signal: controller.signal,
       });
     }

@@ -4,13 +4,13 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import cors from 'cors';
 import axios from 'axios';
 import NodeCache from 'node-cache';
-import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import bodyParser from 'body-parser';
 
 const app = express();
 const PORT = 3001;
@@ -41,6 +41,14 @@ const PUBLIC_EXPLANATIONS_PATH = path.join(__dirname, 'public/explanations');
 
 // Correct path to the explanations folder the user specified
 const USER_EXPLANATIONS_PATH = 'C:/Users/burak/Desktop/prep/DSA_Approaches/explanations';
+const ABSOLUTE_EXPLANATIONS_PATH = path.resolve(USER_EXPLANATIONS_PATH);
+
+// Debug path information
+console.log('Path configurations:');
+console.log(` - EXPLANATIONS_PATH: ${EXPLANATIONS_PATH}`);
+console.log(` - PUBLIC_EXPLANATIONS_PATH: ${PUBLIC_EXPLANATIONS_PATH}`);
+console.log(` - USER_EXPLANATIONS_PATH: ${USER_EXPLANATIONS_PATH}`);
+console.log(` - ABSOLUTE_EXPLANATIONS_PATH: ${ABSOLUTE_EXPLANATIONS_PATH}`);
 
 // LeetCode API endpoints
 const LEETCODE_BASE_URL = 'https://leetcode.com';
@@ -230,44 +238,54 @@ app.get('/api/topics', (req, res) => {
   try {
     const topics = [];
     
-    // First try the public explanations folder
-    let basePath = PUBLIC_EXPLANATIONS_PATH;
-    let directories = [];
+    // Try all explanation paths
+    const possiblePaths = [
+      PUBLIC_EXPLANATIONS_PATH,
+      EXPLANATIONS_PATH,
+      USER_EXPLANATIONS_PATH,
+      ABSOLUTE_EXPLANATIONS_PATH,
+      path.join(__dirname, '../..') // Another possible path for parent directory
+    ];
     
-    try {
-      if (fs.existsSync(basePath)) {
-        directories = fs.readdirSync(basePath);
-      } else {
-        // Fall back to the other path if public doesn't exist
-        basePath = EXPLANATIONS_PATH;
-        directories = fs.readdirSync(basePath);
+    let foundPath = false;
+    
+    for (const basePath of possiblePaths) {
+      try {
+        if (fs.existsSync(basePath)) {
+          const directories = fs.readdirSync(basePath);
+          
+          directories.forEach(dir => {
+            if (dir.match(/^\d+_/)) { // Match directories like 01_Two_Pointers
+              const dirPath = path.join(basePath, dir);
+              if (fs.statSync(dirPath).isDirectory()) {
+                const files = fs.readdirSync(dirPath);
+                
+                const topicInfo = {
+                  id: dir.toLowerCase().replace(/^\d+_/, '').replace(/_/g, '-'),
+                  title: dir.replace(/^\d+_/, '').replace(/_/g, ' '),
+                  directory: dir,
+                  hasTheory: files.some(file => file.includes('THEORY')),
+                  hasProblems: files.some(file => file.includes('PROBLEMS') || file.includes('SOLUTIONS')),
+                  path: dirPath,
+                  files: files.filter(file => file.endsWith('.md'))
+                };
+                
+                topics.push(topicInfo);
+              }
+            }
+          });
+          
+          foundPath = true;
+          break;
+        }
+      } catch (dirError) {
+        console.error(`Error reading directory ${basePath}:`, dirError);
       }
-    } catch (dirError) {
-      console.error('Error reading base directory:', dirError);
-      basePath = EXPLANATIONS_PATH;
-      directories = fs.readdirSync(basePath);
     }
     
-    directories.forEach(dir => {
-      if (dir.match(/^\d+_/)) { // Match directories like 01_Two_Pointers
-        const dirPath = path.join(basePath, dir);
-        if (fs.statSync(dirPath).isDirectory()) {
-          const files = fs.readdirSync(dirPath);
-          
-          const topicInfo = {
-            id: dir.toLowerCase().replace(/^\d+_/, '').replace(/_/g, '-'),
-            title: dir.replace(/^\d+_/, '').replace(/_/g, ' '),
-            directory: dir,
-            hasTheory: files.some(file => file.includes('THEORY')),
-            hasProblems: files.some(file => file.includes('PROBLEMS') || file.includes('SOLUTIONS')),
-            path: dirPath,
-            files: files.filter(file => file.endsWith('.md'))
-          };
-          
-          topics.push(topicInfo);
-        }
-      }
-    });
+    if (!foundPath) {
+      return res.status(404).json({ error: 'No valid explanations directories found' });
+    }
     
     res.json(topics);
   } catch (error) {
@@ -277,13 +295,10 @@ app.get('/api/topics', (req, res) => {
 });
 
 // API endpoint to list all files in a directory
-app.get('/api/files/:directory*', (req, res) => {
+app.get('/api/files/:directory(*)', (req, res) => {
   try {
     let requestPath = req.params.directory;
-    // Handle additional path fragments
-    if (req.params[0]) {
-      requestPath = path.join(requestPath, req.params[0]);
-    }
+    // Using wildcard pattern (*) instead of req.params[0]
     
     console.log(`Requested directory path: ${requestPath}`);
     
@@ -292,7 +307,15 @@ app.get('/api/files/:directory*', (req, res) => {
       path.join(PUBLIC_EXPLANATIONS_PATH, requestPath),
       path.join(EXPLANATIONS_PATH, requestPath),
       path.join(USER_EXPLANATIONS_PATH, requestPath), // User specified path
-      path.join(__dirname, '../', requestPath) // Add this path for better directory navigation
+      path.join(ABSOLUTE_EXPLANATIONS_PATH, requestPath),
+      path.join(__dirname, '../', requestPath), // Add this path for better directory navigation
+      path.join(__dirname, '../../', requestPath), // Try parent of parent directory
+      // Try direct paths for DSA topic directories
+      ...['01_Two_Pointers', '02_Sliding_Window', '03_Binary_Search', '04_Dynamic_Programming',
+          '05_Greedy_Algorithms', '06_Backtracking', '07_Graph_Algorithms', 
+          '08_Tree_Algorithms', '09_Stack_Queue', '10_Heap_Priority_Queue'].map(dir => 
+            path.join(USER_EXPLANATIONS_PATH, dir, requestPath.replace(/:/g, '_'))
+      )
     ];
     
     console.log('Looking in these paths:');
@@ -322,7 +345,14 @@ app.get('/api/files/:directory*', (req, res) => {
     // Process file information
     const fileList = files.map(file => {
       const fullPath = path.join(dirPath, file);
-      const stats = fs.statSync(fullPath);
+      let stats;
+      try {
+        stats = fs.statSync(fullPath);
+      } catch (error) {
+        console.error(`Error getting stats for file ${fullPath}:`, error.message);
+        return null;
+      }
+      
       const isDirectory = stats.isDirectory();
       
       return {
@@ -333,7 +363,7 @@ app.get('/api/files/:directory*', (req, res) => {
         lastModified: stats.mtime,
         extension: isDirectory ? null : path.extname(file).substr(1)
       };
-    });
+    }).filter(Boolean); // Remove any null entries from failed stats
     
     res.json({ 
       path: requestPath,
@@ -347,13 +377,11 @@ app.get('/api/files/:directory*', (req, res) => {
 });
 
 // API endpoint to get file content by path
-app.get('/api/content/:filepath*', (req, res) => {
+app.get('/api/content/:filepath(*)', (req, res) => {
   try {
     let requestPath = req.params.filepath;
-    // Handle additional path fragments
-    if (req.params[0]) {
-      requestPath = path.join(requestPath, req.params[0]);
-    }
+    // Handle additional path fragments (no longer needed with the (*) wildcard pattern)
+    // Using the wildcard pattern instead of req.params[0]
     
     console.log(`Requested file path: ${requestPath}`);
     
@@ -409,13 +437,24 @@ app.get('/api/topics/:topicDir/theory', (req, res) => {
   try {
     const { topicDir } = req.params;
     
-    // Try both paths
-    let filePath = path.join(PUBLIC_EXPLANATIONS_PATH, topicDir, 'THEORY_COMPLETE.md');
-    if (!fs.existsSync(filePath)) {
-      filePath = path.join(EXPLANATIONS_PATH, topicDir, 'THEORY_COMPLETE.md');
+    // Try all possible paths
+    const possiblePaths = [
+      path.join(PUBLIC_EXPLANATIONS_PATH, topicDir, 'THEORY_COMPLETE.md'),
+      path.join(EXPLANATIONS_PATH, topicDir, 'THEORY_COMPLETE.md'),
+      path.join(USER_EXPLANATIONS_PATH, topicDir, 'THEORY_COMPLETE.md')
+    ];
+    
+    let filePath = null;
+    
+    // Find first existing path
+    for (const tryPath of possiblePaths) {
+      if (fs.existsSync(tryPath)) {
+        filePath = tryPath;
+        break;
+      }
     }
     
-    if (fs.existsSync(filePath)) {
+    if (filePath) {
       const content = fs.readFileSync(filePath, 'utf8');
       res.json({ 
         content,
@@ -435,9 +474,28 @@ app.get('/api/topics/:topicDir/theory', (req, res) => {
 app.get('/api/topics/:topicDir/problems', (req, res) => {
   try {
     const { topicDir } = req.params;
-    const filePath = path.join(EXPLANATIONS_PATH, topicDir, 'PROBLEMS_SOLUTIONS.md');
     
-    if (fs.existsSync(filePath)) {
+    // Try all possible paths for problems files with various naming patterns
+    const possiblePaths = [
+      path.join(PUBLIC_EXPLANATIONS_PATH, topicDir, 'PROBLEMS_SOLUTIONS.md'),
+      path.join(EXPLANATIONS_PATH, topicDir, 'PROBLEMS_SOLUTIONS.md'),
+      path.join(USER_EXPLANATIONS_PATH, topicDir, 'PROBLEMS_SOLUTIONS.md'),
+      path.join(PUBLIC_EXPLANATIONS_PATH, topicDir, 'PROBLEMS_WITH_SOLUTIONS.md'),
+      path.join(EXPLANATIONS_PATH, topicDir, 'PROBLEMS_WITH_SOLUTIONS.md'),
+      path.join(USER_EXPLANATIONS_PATH, topicDir, 'PROBLEMS_WITH_SOLUTIONS.md')
+    ];
+    
+    let filePath = null;
+    
+    // Find first existing path
+    for (const tryPath of possiblePaths) {
+      if (fs.existsSync(tryPath)) {
+        filePath = tryPath;
+        break;
+      }
+    }
+    
+    if (filePath) {
       const content = fs.readFileSync(filePath, 'utf8');
       res.json({ 
         content,
@@ -456,20 +514,39 @@ app.get('/api/topics/:topicDir/problems', (req, res) => {
 // API endpoint to get roadmap and progress files
 app.get('/api/roadmap', (req, res) => {
   try {
-    const files = fs.readdirSync(EXPLANATIONS_PATH);
-    const roadmapFiles = files.filter(file => 
-      file.includes('ROADMAP') || 
-      file.includes('ITERATION') || 
-      file.includes('PROGRESS')
-    );
-    
+    const baseDirectories = [USER_EXPLANATIONS_PATH, EXPLANATIONS_PATH];
     const roadmapContent = {};
-    roadmapFiles.forEach(file => {
-      const filePath = path.join(EXPLANATIONS_PATH, file);
-      if (fs.statSync(filePath).isFile() && file.endsWith('.md')) {
-        roadmapContent[file] = fs.readFileSync(filePath, 'utf8');
+    
+    for (const baseDir of baseDirectories) {
+      try {
+        if (fs.existsSync(baseDir)) {
+          const files = fs.readdirSync(baseDir);
+          const roadmapFiles = files.filter(file => 
+            file.includes('ROADMAP') || 
+            file.includes('ITERATION') || 
+            file.includes('PROGRESS')
+          );
+          
+          roadmapFiles.forEach(file => {
+            const filePath = path.join(baseDir, file);
+            if (fs.statSync(filePath).isFile() && file.endsWith('.md')) {
+              roadmapContent[file] = fs.readFileSync(filePath, 'utf8');
+            }
+          });
+          
+          // If we found roadmap files in this directory, no need to check others
+          if (Object.keys(roadmapContent).length > 0) {
+            break;
+          }
+        }
+      } catch (error) {
+        console.error(`Error reading roadmap files from ${baseDir}:`, error);
       }
-    });
+    }
+    
+    if (Object.keys(roadmapContent).length === 0) {
+      return res.status(404).json({ error: 'No roadmap files found' });
+    }
     
     res.json(roadmapContent);
   } catch (error) {
@@ -730,25 +807,356 @@ app.get('/api/clear-cache', (req, res) => {
   res.json({ message: 'Cache cleared successfully' });
 });
 
-// Install required dependencies if missing
-const checkDependencies = async () => {
-  const dependencies = [
-    'cookie-parser', 
-    'body-parser'
-  ];
-  
-  // Just log a message since we can't dynamically import in ES modules
-  console.log('Make sure these dependencies are installed:');
-  dependencies.forEach(dep => console.log(`- ${dep}`));
-  console.log('If you see any errors, run: npm install cookie-parser body-parser cors axios node-cache');
-};
+// Endpoint to get LeetCode problems by tag
+app.get('/api/leetcode/problems/bytag/:tag', async (req, res) => {
+  try {
+    const { tag } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+    
+    // First check cache
+    const cacheKey = `tag_problems:${tag}_${limit}`;
+    const cachedData = apiCache.get(cacheKey);
+    if (cachedData) {
+      console.log(`Serving cached problems for tag: ${tag}`);
+      return res.json(cachedData);
+    }
+    
+    console.log(`Fetching problems for tag: ${tag}, limit: ${limit}`);
+    
+    // Construct headers for request
+    const headers = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'DSA-Tracker-App/1.0',
+      'Origin': 'https://leetcode.com',
+      'Referer': 'https://leetcode.com/problemset/'
+    };
+    
+    // GraphQL query to get problems by tag
+    const query = `
+      query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
+        problemsetQuestionList: questionList(
+          categorySlug: $categorySlug
+          limit: $limit
+          skip: $skip
+          filters: $filters
+        ) {
+          total: totalNum
+          questions: data {
+            acRate
+            difficulty
+            freqBar
+            frontendQuestionId: questionFrontendId
+            isFavor
+            paidOnly: isPaidOnly
+            status
+            title
+            titleSlug
+            topicTags {
+              name
+              id
+              slug
+            }
+          }
+        }
+      }
+    `;
+    
+    // Variables for the GraphQL query
+    const variables = {
+      categorySlug: "",
+      limit,
+      skip: 0,
+      filters: {
+        tags: [tag]
+      }
+    };
+    
+    const response = await axios.post(
+      LEETCODE_GRAPHQL_URL,
+      { query, variables },
+      { headers }
+    );
+    
+    if (!response.data || response.data.errors) {
+      console.error('LeetCode API errors:', response.data?.errors);
+      return res.status(400).json({ 
+        error: 'Failed to fetch problems by tag', 
+        details: response.data?.errors 
+      });
+    }
+    
+    const questions = response.data.data.problemsetQuestionList.questions || [];
+    
+    // Map to a more convenient format
+    const problems = questions.map(q => ({
+      questionId: q.frontendQuestionId,
+      title: q.title,
+      titleSlug: q.titleSlug,
+      difficulty: q.difficulty,
+      isPaidOnly: q.paidOnly,
+      acRate: q.acRate,
+      status: q.status,
+      tags: q.topicTags.map(tag => tag.name),
+      topicTags: q.topicTags
+    }));
+    
+    // Cache the response
+    apiCache.set(cacheKey, problems);
+    
+    res.json(problems);
+  } catch (error) {
+    console.error(`Error fetching problems for tag ${req.params.tag}:`, error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch problems by tag',
+      message: error.message
+    });
+  }
+});
+
+// Endpoint to get daily coding challenge
+app.get('/api/leetcode/daily-challenge', async (req, res) => {
+  try {
+    // First check cache
+    const cacheKey = `daily_challenge`;
+    const cachedData = apiCache.get(cacheKey);
+    if (cachedData) {
+      console.log('Serving cached daily challenge');
+      return res.json(cachedData);
+    }
+    
+    const query = `
+      query questionOfToday {
+        activeDailyCodingChallengeQuestion {
+          date
+          userStatus
+          link
+          question {
+            acRate
+            difficulty
+            freqBar
+            frontendQuestionId: questionFrontendId
+            isFavor
+            paidOnly: isPaidOnly
+            status
+            title
+            titleSlug
+            hasVideoSolution
+            hasSolution
+            topicTags {
+              name
+              id
+              slug
+            }
+          }
+        }
+      }
+    `;
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'DSA-Tracker-App/1.0',
+      'Origin': 'https://leetcode.com',
+      'Referer': 'https://leetcode.com/'
+    };
+    
+    // Add session cookie if available
+    const sessionId = req.cookies['leetcode_session'];
+    if (sessionId) {
+      const csrfToken = req.cookies['csrftoken'] || '';
+      headers['Cookie'] = `LEETCODE_SESSION=${sessionId}; csrftoken=${csrfToken}`;
+    }
+    
+    const response = await axios.post(
+      LEETCODE_GRAPHQL_URL,
+      { query },
+      { headers }
+    );
+    
+    if (!response.data || response.data.errors) {
+      console.error('LeetCode API errors:', response.data?.errors);
+      return res.status(400).json({ 
+        error: 'Failed to fetch daily challenge', 
+        details: response.data?.errors 
+      });
+    }
+    
+    const dailyChallenge = response.data.data.activeDailyCodingChallengeQuestion;
+    
+    // Cache the response for 6 hours instead of default 5 minutes
+    apiCache.set(cacheKey, dailyChallenge, 21600);
+    
+    res.json(dailyChallenge);
+  } catch (error) {
+    console.error('Error fetching daily challenge:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch daily challenge',
+      message: error.message
+    });
+  }
+});
+
+// Endpoint to get user's solved problems
+app.get('/api/leetcode/user/:username/solved', async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    // First check cache
+    const cacheKey = `user_solved:${username}`;
+    const cachedData = apiCache.get(cacheKey);
+    if (cachedData) {
+      console.log(`Serving cached solved problems for user: ${username}`);
+      return res.json(cachedData);
+    }
+    
+    const query = `
+      query userProblemsSolved($username: String!) {
+        matchedUser(username: $username) {
+          submitStats: submitStatsGlobal {
+            acSubmissionNum {
+              difficulty
+              count
+              submissions
+            }
+          }
+          problemsSolvedBeatsStats {
+            difficulty
+            percentage
+          }
+          submitStatsGlobal {
+            acSubmissionNum {
+              difficulty
+              count
+              submissions
+            }
+          }
+          solvedPerDifficultyCount: submitStatsGlobal {
+            acSubmissionNum {
+              difficulty
+              count
+            }
+          }
+          contributionPoint {
+            points
+            questionCount
+            testcaseCount
+          }
+          profile {
+            reputation
+            ranking
+          }
+          submissionCalendar
+        }
+        recentSubmissionList(username: $username, limit: 20) {
+          title
+          titleSlug
+          timestamp
+          statusDisplay
+          lang
+        }
+      }
+    `;
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'DSA-Tracker-App/1.0'
+    };
+    
+    const response = await axios.post(
+      LEETCODE_GRAPHQL_URL,
+      { query, variables: { username } },
+      { headers }
+    );
+    
+    if (!response.data || response.data.errors) {
+      console.error('LeetCode API errors:', response.data?.errors);
+      return res.status(400).json({ 
+        error: 'Failed to fetch user solved problems', 
+        details: response.data?.errors 
+      });
+    }
+    
+    const userData = response.data.data.matchedUser;
+    const recentSubmissions = response.data.data.recentSubmissionList || [];
+    
+    const result = {
+      totalSolved: userData.submitStats.acSubmissionNum.reduce((total, item) => total + item.count, 0),
+      difficultyBreakdown: userData.submitStats.acSubmissionNum,
+      recentSubmissions,
+      profile: userData.profile,
+      submissionCalendar: userData.submissionCalendar,
+      ranking: userData.profile?.ranking
+    };
+    
+    // Cache the response
+    apiCache.set(cacheKey, result, 3600); // Cache for 1 hour
+    
+    res.json(result);
+  } catch (error) {
+    console.error(`Error fetching solved problems for user ${req.params.username}:`, error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch user solved problems',
+      message: error.message
+    });
+  }
+});
+
+// Add diagnostic endpoint to check paths
+app.get('/api/debug/paths', (req, res) => {
+  try {
+    const pathInfo = {
+      EXPLANATIONS_PATH,
+      PUBLIC_EXPLANATIONS_PATH,
+      USER_EXPLANATIONS_PATH,
+      ABSOLUTE_EXPLANATIONS_PATH,
+      currentDir: __dirname,
+      parentDir: path.join(__dirname, '..'),
+      exists: {
+        EXPLANATIONS_PATH: fs.existsSync(EXPLANATIONS_PATH),
+        PUBLIC_EXPLANATIONS_PATH: fs.existsSync(PUBLIC_EXPLANATIONS_PATH),
+        USER_EXPLANATIONS_PATH: fs.existsSync(USER_EXPLANATIONS_PATH),
+        ABSOLUTE_EXPLANATIONS_PATH: fs.existsSync(ABSOLUTE_EXPLANATIONS_PATH)
+      },
+      directories: {}
+    };
+    
+    // List files in each important directory
+    for (const [name, dirPath] of Object.entries({
+      EXPLANATIONS_PATH,
+      PUBLIC_EXPLANATIONS_PATH,
+      USER_EXPLANATIONS_PATH,
+      ABSOLUTE_EXPLANATIONS_PATH
+    })) {
+      try {
+        if (fs.existsSync(dirPath)) {
+          pathInfo.directories[name] = fs.readdirSync(dirPath)
+            .filter(item => fs.statSync(path.join(dirPath, item)).isDirectory())
+            .slice(0, 10); // Only include first 10 directories
+        } else {
+          pathInfo.directories[name] = 'Directory does not exist';
+        }
+      } catch (error) {
+        pathInfo.directories[name] = `Error: ${error.message}`;
+      }
+    }
+    
+    res.json(pathInfo);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get path information',
+      message: error.message
+    });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`📚 DSA Content Server running on http://localhost:${PORT}`);
   console.log(`📁 Serving files from:`);
   console.log(`   - ${PUBLIC_EXPLANATIONS_PATH} (public)`);
   console.log(`   - ${EXPLANATIONS_PATH} (project root)`);
+  console.log(`   - ${USER_EXPLANATIONS_PATH} (user specified)`);
+  console.log(`   - ${ABSOLUTE_EXPLANATIONS_PATH} (absolute path)`);
   console.log(`🔗 React app should connect to this server at http://localhost:5173`);
   console.log(`🔄 LeetCode API proxy available with session support`);
   console.log(`🗄️ Dynamic file browsing enabled at /api/files/`);
+  console.log(`🔍 Path diagnostics available at /api/debug/paths`);
 });
