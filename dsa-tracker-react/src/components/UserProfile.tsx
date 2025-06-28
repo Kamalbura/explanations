@@ -54,9 +54,9 @@ const UserProfile = () => {
     <div className="relative">
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center space-x-2 sm:space-x-3 p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
-        <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary-500 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-medium">
           {userAccount?.avatar ? (
             <img 
               src={userAccount.avatar} 
@@ -66,10 +66,10 @@ const UserProfile = () => {
           ) : displayName !== 'Guest User' ? (
             getInitials(displayName)
           ) : (
-            <User className="w-4 h-4" />
+            <User className="w-3 h-3 sm:w-4 sm:h-4" />
           )}
         </div>
-        <div className="hidden md:block text-left">
+        <div className="hidden lg:block text-left">
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {displayName}
           </p>
@@ -81,12 +81,12 @@ const UserProfile = () => {
         </div>
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu - Responsive */}
       {isDropdownOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-white text-lg font-medium overflow-hidden">
+        <div className="absolute right-0 mt-2 w-56 sm:w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+          <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary-500 rounded-full flex items-center justify-center text-white text-base sm:text-lg font-medium overflow-hidden">
                 {userAccount?.avatar ? (
                   <img 
                     src={userAccount.avatar} 
@@ -96,25 +96,25 @@ const UserProfile = () => {
                 ) : displayName !== 'Guest User' ? (
                   getInitials(displayName)
                 ) : (
-                  <User className="w-6 h-6" />
+                  <User className="w-5 h-5 sm:w-6 sm:h-6" />
                 )}
               </div>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-gray-900 dark:text-white text-sm sm:text-base truncate">
                   {displayName}
                 </p>
                 {email && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
                     {email}
                   </p>
                 )}
                 {leetcodeUsername && (
-                  <p className="text-sm text-primary-600 dark:text-primary-400">
+                  <p className="text-xs sm:text-sm text-primary-600 dark:text-primary-400 truncate">
                     LeetCode: @{leetcodeUsername}
                   </p>
                 )}
                 {isAuthenticated && userData && (
-                  <p className="text-xs text-green-600 dark:text-green-400">
+                  <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400">
                     {userData.progress.totalSolved} problems solved
                   </p>
                 )}
@@ -122,12 +122,12 @@ const UserProfile = () => {
             </div>
           </div>
           
-          <div className="p-2">
+          <div className="p-1.5 sm:p-2">
             <button
               onClick={goToSettings}
-              className="w-full flex items-center space-x-3 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="w-full flex items-center space-x-2 sm:space-x-3 px-2.5 sm:px-3 py-2 text-left text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Account Settings</span>
             </button>
           </div>

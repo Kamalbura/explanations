@@ -3,17 +3,21 @@ import { Clock, Target, Trophy, Flame } from 'lucide-react'
 import { useLeetCodeAuth } from '../contexts/LeetCodeAuthContext'
 import { Link } from 'react-router-dom'
 
-const NAVBAR_HEIGHT = 64 // px; adjust if your navbar is taller/shorter
+// UI Components
+import StatCard from './ui/StatCard'
+import SubmissionRow from './ui/SubmissionRow'
+import ProgressBar from './ui/ProgressBar'
+import ConnectionStatus from './ui/ConnectionStatus'
 
 const Dashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date())
   const { isAuthenticated, userData, isLoading, error, refreshData } = useLeetCodeAuth()
-  
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
-  
+
   useEffect(() => {
     if (isAuthenticated && !userData) {
       refreshData()
@@ -29,7 +33,6 @@ const Dashboard = () => {
     return `${Math.floor(diff / 86400)}d ago`
   }
 
-  // Utility function for truncating text by words
   function truncateWords(str: string, numWords: number): string {
     if (!str) return '';
     const words = str.split(' ');
@@ -37,7 +40,6 @@ const Dashboard = () => {
     return words.slice(0, numWords).join(' ') + '...';
   }
 
-  // Use real LeetCode stats for dashboard analytics
   const stats = userData ? [
     {
       title: 'Total Solved',
@@ -73,55 +75,30 @@ const Dashboard = () => {
     },
   ] : [];
 
-  // Recent submissions from LeetCode if available
   const recentSubmissions = userData?.recentAcSubmissions || [];
 
   return (
-    <div
-      className="w-full"
-      style={{
-        height: `calc(100vh - ${NAVBAR_HEIGHT}px)`,
-        marginTop: `${NAVBAR_HEIGHT}px`,
-        overflowY: 'auto',
-        background: 'inherit',
-      }}
-    >
-      <div className="max-w-5xl mx-auto space-y-4 p-4">
+    <main className="w-full min-h-screen bg-background">
+      <div className="max-w-6xl mx-auto px-2 sm:px-6 md:px-10 py-8 space-y-8">
         {/* LeetCode Connection Status */}
-        {!isAuthenticated ? (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-4 rounded-lg shadow-sm">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                  Connect your LeetCode account to see real progress data.
-                  <Link to="/leetcode/login" className="ml-2 font-medium underline">Connect now</Link>
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
-        
+        <ConnectionStatus isAuthenticated={isAuthenticated} />
+
         {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl text-white p-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+        <section className="bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl text-white p-4 sm:p-6 shadow-lg hover:shadow-xl transition-shadow duration-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold mb-1 truncate" title={`Welcome back${userData ? `, ${userData.profile.realName || userData.profile.username}` : ''}! 👋`}>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 leading-tight" title={`Welcome back${userData ? `, ${userData.profile.realName || userData.profile.username}` : ''}! 👋`}>
                 Welcome back{userData ? `, ${truncateWords(userData.profile.realName || userData.profile.username, 3)}` : ''}! 👋
               </h1>
-              <p className="text-primary-100 break-words text-sm">
+              <p className="text-primary-100 text-sm sm:text-base opacity-90">
                 Ready to tackle some algorithms? You're doing great!
               </p>
             </div>
             <div className="text-right flex-shrink-0">
-              <div className="text-xl font-bold">
+              <div className="text-lg sm:text-xl font-bold">
                 {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
-              <div className="text-primary-200 whitespace-nowrap text-sm">
+              <div className="text-primary-200 text-xs sm:text-sm opacity-80">
                 {currentTime.toLocaleDateString([], { 
                   weekday: 'short', 
                   month: 'short', 
@@ -130,10 +107,10 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* LeetCode Progress Section */}
-        <div className="card">
+        <section className="card py-4 sm:py-6 px-4 hover:shadow-lg transition-shadow duration-200">
           <h3 className="text-lg font-semibold mb-4 flex items-center">
             <Trophy className="w-5 h-5 mr-2 text-yellow-500" />
             LeetCode Progress
@@ -143,110 +120,81 @@ const Dashboard = () => {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
             </div>
           ) : error ? (
-            <div className="py-4 text-center text-red-500">{error}</div>
+            <div className="py-4 text-center text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <p>{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="mt-2 text-sm text-red-600 hover:text-red-700 underline"
+              >
+                Try again
+              </button>
+            </div>
           ) : (
             <>
               {/* Stats Grid */}
               {isAuthenticated && userData ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  {stats.map((stat, index) => {
-                    const Icon = stat.icon;
-                    return (
-                      <div key={index} className="card p-4">
-                        <div className="flex flex-col justify-between min-h-[90px]">
-                          <div className="flex items-start justify-between min-w-0">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 truncate" title={stat.title}>
-                                {stat.title}
-                              </p>
-                              <p className="text-lg font-bold text-gray-900 dark:text-white break-words truncate" title={stat.value}>
-                                {stat.value}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 break-words truncate" title={stat.change}>
-                                {stat.change}
-                              </p>
-                            </div>
-                            <div className={`p-2 rounded-lg ml-2 flex-shrink-0 ${stat.bgColor}`}>
-                              <Icon className={`w-5 h-5 ${stat.color}`} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  {stats.map((stat, index) => (
+                    <StatCard
+                      key={index}
+                      title={stat.title}
+                      value={stat.value}
+                      change={stat.change}
+                      icon={stat.icon}
+                      color={stat.color}
+                      bgColor={stat.bgColor}
+                    />
+                  ))}
                 </div>
               ) : (
-                <div className="text-center py-4">
-                  <Link to="/leetcode/login" className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
-                    Connect LeetCode Account
-                  </Link>
-                </div>
+                  <div className="text-center py-6">
+                    <Link 
+                      to="/leetcode/login" 
+                      className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 shadow-md hover:shadow-lg"
+                    >
+                      Connect LeetCode Account
+                    </Link>
+                  </div>
               )}
-              
+
               {/* Recent LeetCode Submissions */}
               {isAuthenticated && userData && recentSubmissions.length > 0 && (
-                <div>
-                  <h4 className="font-semibold mb-2">Recent Solved Problems</h4>
+                <section>
+                  <h4 className="font-semibold mb-3">Recent Solved Problems</h4>
                   <div className="space-y-2">
                     {recentSubmissions.slice(0, 3).map((sub: any, idx: number) => (
-                      <div
+                      <SubmissionRow
                         key={idx}
-                        className="flex items-center gap-x-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        {/* Problem Name - Takes most space */}
-                        <div className="flex-1 min-w-0">
-                          <a 
-                            href={`https://leetcode.com/problems/${sub.titleSlug}/`} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="font-medium text-blue-700 dark:text-blue-300 hover:underline block truncate text-sm"
-                            title={sub.title}
-                          >
-                            {truncateWords(sub.title, 8)}
-                          </a>
-                        </div>
-                        
-                        {/* Status Badge - More prominent */}
-                        <div className="flex items-center">
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/40 rounded-full border border-green-200 dark:border-green-800">
-                            ✓ AC
-                          </span>
-                        </div>
-                        
-                        {/* Time and Language - Compact right side */}
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                          <span className="whitespace-nowrap" title={timeAgo(sub.timestamp)}>
-                            {timeAgo(sub.timestamp)}
-                          </span>
-                          <span className="px-1 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-center min-w-[35px]" title={sub.lang}>
-                            {sub.lang}
-                          </span>
-                        </div>
-                      </div>
+                        submission={sub}
+                        timeAgo={timeAgo}
+                        truncateWords={truncateWords}
+                      />
                     ))}
                   </div>
-                  
-                  <div className="mt-3 text-center">
-                    <Link to="/leetcode" className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm">
+                  <div className="mt-4 text-center">
+                    <Link 
+                      to="/leetcode" 
+                      className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors duration-200 text-sm font-medium"
+                    >
                       View all activity →
                     </Link>
                   </div>
-                </div>
+                </section>
               )}
             </>
           )}
-        </div>
+        </section>
 
         {/* Progress Section */}
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-3">Current Study Iteration</h3>
+        <section className="card py-4 sm:py-6 px-4 hover:shadow-lg transition-shadow duration-200">
+          <h3 className="text-lg font-semibold mb-4">Current Study Iteration</h3>
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
               <div className="flex-1 min-w-0">
-                <h4 className="text-lg font-bold text-gray-900 dark:text-white truncate" title="🌳 Tree Algorithms">
+                <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1" title="🌳 Tree Algorithms">
                   🌳 Tree Algorithms
                 </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 truncate" title="Iteration 7 of 20 • 35% Complete">
+                <p className="text-sm text-gray-600 dark:text-gray-400" title="Iteration 7 of 20 • 35% Complete">
                   Iteration 7 of 20 • 35% Complete
                 </p>
               </div>
@@ -254,40 +202,30 @@ const Dashboard = () => {
                 <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
                   4/12
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Problems solved
                 </p>
               </div>
             </div>
             
-            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-300" 
-                style={{ width: '33%' }}
-              ></div>
-            </div>
+            <ProgressBar percentage={33} className="mb-4" />
             
-            <div className="mt-3 flex justify-between text-xs">
-              <span className="text-gray-600 dark:text-gray-400 truncate">Started 2 days ago</span>
-              <span className="text-gray-600 dark:text-gray-400 truncate">Est. completion: Today</span>
+            <div className="flex flex-col sm:flex-row justify-between gap-2 text-xs text-gray-600 dark:text-gray-400">
+              <span>Started 2 days ago</span>
+              <span>Est. completion: Today</span>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Theory Progress */}
-        <div className="card">
+        <section className="card py-4 sm:py-6 px-4 hover:shadow-lg transition-shadow duration-200">
           <h3 className="text-lg font-semibold mb-4">Theory Progress</h3>
-          <div className="space-y-4">
-            {/*
-              { name: 'Binary Search', progress: 100, category: '03_Binary_Search' },
-              { name: 'Tree Algorithms', progress: 65, category: '08_Tree_Algorithms' },
-              { name: 'Graph Algorithms', progress: 40, category: '07_Graph_Algorithms' },
-              { name: 'Dynamic Programming', progress: 25, category: '04_Dynamic_Programming' },
-            */}
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <p className="text-sm">Theory progress tracking coming soon...</p>
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   )
 }
 

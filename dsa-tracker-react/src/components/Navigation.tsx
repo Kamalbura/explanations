@@ -114,22 +114,22 @@ const Navigation = ({ isOpen, isCollapsed = false, onCollapse }: NavigationProps
         className={`fixed left-0 top-16 h-[calc(100vh-4rem)] 
           bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
           z-40 transition-all duration-200 ease-out
-          ${isCollapsed ? 'w-16 shadow-sm' : 'w-64 shadow-lg'}`}
+          ${isCollapsed ? 'w-12 sm:w-16 shadow-sm' : 'w-56 sm:w-64 shadow-lg'}`}
       >
-        {/* Toggle Button */}
-        <div className="absolute -right-3 top-6 z-50">
+        {/* Toggle Button - Hidden on mobile when collapsed */}
+        <div className={`absolute -right-3 top-6 z-50 ${isCollapsed ? 'hidden sm:block' : 'block'}`}>
           <button
             onClick={toggleCollapse}
-            className="w-6 h-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+            className="w-5 h-5 sm:w-6 sm:h-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
           >
             <ChevronRight 
-              size={12} 
-              className={`transition-transform duration-200 ${isCollapsed ? 'rotate-0' : 'rotate-180'}`}
+              size={10} 
+              className={`sm:w-3 sm:h-3 transition-transform duration-200 ${isCollapsed ? 'rotate-0' : 'rotate-180'}`}
             />
           </button>
         </div>
-        <div className={`${isCollapsed ? 'p-2' : 'p-6'} h-full overflow-y-auto flex flex-col`}>
-          <nav className="space-y-2 flex-1">
+        <div className={`${isCollapsed ? 'p-1 sm:p-2' : 'p-4 sm:p-6'} h-full overflow-y-auto flex flex-col`}>
+          <nav className="space-y-1 sm:space-y-2 flex-1">
             {menuItems.map((item) => {
               const isActive =
                 location.pathname === item.path ||
@@ -140,27 +140,29 @@ const Navigation = ({ isOpen, isCollapsed = false, onCollapse }: NavigationProps
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center p-3 rounded-lg transition-all duration-200 group relative ${
+                  className={`flex items-center p-2 sm:p-3 rounded-lg transition-all duration-200 group relative ${
                     isActive
                       ? 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white shadow-lg'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   } ${isCollapsed ? 'justify-center' : 'justify-between'}`}
                   title={isCollapsed ? item.name : undefined}
                 >
-                  <div className={`flex items-center ${isCollapsed ? '' : 'space-x-3'}`}>
-                    <Icon size={20} />
-                    {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                  <div className={`flex items-center ${isCollapsed ? '' : 'space-x-2 sm:space-x-3'}`}>
+                    <Icon size={isCollapsed ? 16 : 18} className="sm:w-5 sm:h-5" />
+                    {!isCollapsed && (
+                      <span className="font-medium text-sm sm:text-base truncate">{item.name}</span>
+                    )}
                   </div>
                   {!isCollapsed && (
                     <ChevronRight
-                      size={16}
-                      className={`transition-transform ${isActive ? 'rotate-90' : 'group-hover:translate-x-1'}`}
+                      size={14}
+                      className={`sm:w-4 sm:h-4 transition-transform flex-shrink-0 ${isActive ? 'rotate-90' : 'group-hover:translate-x-1'}`}
                     />
                   )}
 
-                  {/* Tooltip for collapsed state */}
+                  {/* Tooltip for collapsed state - Only on larger screens */}
                   {isCollapsed && (
-                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none hidden sm:block">
                       {item.name}
                     </div>
                   )}
@@ -170,94 +172,93 @@ const Navigation = ({ isOpen, isCollapsed = false, onCollapse }: NavigationProps
           </nav>
 
           {/* Simple Heart Button at Bottom */}
-          <div className={`mt-auto border-t border-gray-200 dark:border-gray-700 pt-4`}>
+          <div className={`mt-auto border-t border-gray-200 dark:border-gray-700 pt-2 sm:pt-4`}>
             <button
               onClick={() => setShowDeveloperModal(true)}
-              className={`w-full flex items-center justify-center p-3 rounded-lg transition-all duration-200 group
-                text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 hover:scale-105
-                ${isCollapsed ? '' : ''}`}
+              className={`w-full flex items-center justify-center p-2 sm:p-3 rounded-lg transition-all duration-200 group
+                text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 hover:scale-105`}
               title={isCollapsed ? "Made with ❤️ by Kamal Bura (Click to learn more)" : "Made with ❤️ (Click to learn more)"}
             >
               <Heart 
-                size={isCollapsed ? 18 : 20} 
-                className="transition-all duration-200" 
+                size={isCollapsed ? 14 : 16} 
+                className="sm:w-5 sm:h-5 transition-all duration-200" 
                 fill="currentColor"
               />
               {!isCollapsed && (
-                <span className="ml-2 text-sm font-medium">Made with ❤️</span>
+                <span className="ml-2 text-xs sm:text-sm font-medium">Made with ❤️</span>
               )}
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Developer Modal - Clean & Minimal */}
+      {/* Developer Modal - Clean & Minimal & Responsive */}
       {showDeveloperModal && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4"
           onClick={handleModalBackdropClick}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-sm w-full mx-4 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-xs sm:max-w-sm w-full mx-2 sm:mx-4 border border-gray-200 dark:border-gray-700">
             {/* Header */}
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 relative">
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 relative">
               <button
                 onClick={closeDeveloperModal}
-                className="absolute top-4 right-4 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 title="Close (ESC)"
               >
-                <X size={18} className="text-gray-500 dark:text-gray-400" />
+                <X size={16} className="sm:w-[18px] sm:h-[18px] text-gray-500 dark:text-gray-400" />
               </button>
               
               <div className="text-center">
-                <Heart size={24} fill="currentColor" className="text-red-500 mx-auto mb-3" />
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                <Heart size={20} fill="currentColor" className="sm:w-6 sm:h-6 text-red-500 mx-auto mb-2 sm:mb-3" />
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1">
                   Made with patience
                 </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">by Kamal Bura</p>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">by Kamal Bura</p>
               </div>
             </div>
 
             {/* Content */}
-            <div className="p-6">
-              {/* Social Links - Simple & Clean */}
-              <div className="space-y-3">
+            <div className="p-4 sm:p-6">
+              {/* Social Links - Simple & Clean & Responsive */}
+              <div className="space-y-2 sm:space-y-3">
                 <a
                   href="https://github.com/kamalbura"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <Github size={18} className="text-gray-700 dark:text-gray-300" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">GitHub</span>
-                  <ExternalLink size={14} className="text-gray-400 ml-auto" />
+                  <Github size={16} className="sm:w-[18px] sm:h-[18px] text-gray-700 dark:text-gray-300" />
+                  <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">GitHub</span>
+                  <ExternalLink size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 ml-auto" />
                 </a>
 
                 <a
                   href="https://linkedin.com/in/kamal-bura"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <Linkedin size={18} className="text-gray-700 dark:text-gray-300" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">LinkedIn</span>
-                  <ExternalLink size={14} className="text-gray-400 ml-auto" />
+                  <Linkedin size={16} className="sm:w-[18px] sm:h-[18px] text-gray-700 dark:text-gray-300" />
+                  <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">LinkedIn</span>
+                  <ExternalLink size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 ml-auto" />
                 </a>
 
                 <a
                   href="https://instagram.com/kamal.bura"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <Instagram size={18} className="text-gray-700 dark:text-gray-300" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Instagram</span>
-                  <ExternalLink size={14} className="text-gray-400 ml-auto" />
+                  <Instagram size={16} className="sm:w-[18px] sm:h-[18px] text-gray-700 dark:text-gray-300" />
+                  <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Instagram</span>
+                  <ExternalLink size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 ml-auto" />
                 </a>
               </div>
 
               {/* Footer */}
-              <div className="mt-6 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="mt-4 sm:mt-6 text-center">
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                   DSA Mastery Hub • React + TypeScript
                 </p>
               </div>

@@ -45,7 +45,7 @@ export interface TheoryContent {
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true) // Start collapsed on mobile
 
   // Theme management
   useEffect(() => {
@@ -56,6 +56,18 @@ function App() {
       setIsDarkMode(true)
       document.documentElement.classList.add('dark')
     }
+
+    // Set initial collapsed state based on screen size
+    const handleResize = () => {
+      if (window.innerWidth < 1024) { // lg breakpoint
+        setIsSidebarCollapsed(true)
+      }
+    }
+
+    handleResize() // Call on mount
+    window.addEventListener('resize', handleResize)
+    
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   const toggleTheme = () => {
@@ -68,29 +80,31 @@ function App() {
     <LeetCodeAuthProvider>
       <Router>
         <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300`}>
-          {/* Header */}
+          {/* Header - Responsive */}
           <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-1 sm:py-2">
-              <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center justify-between px-3 sm:px-4 lg:px-6 py-2 sm:py-3">
+              <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4">
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Toggle navigation"
                 >
-                  {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+                  {isSidebarOpen ? <X size={18} className="sm:w-5 sm:h-5" /> : <Menu size={18} className="sm:w-5 sm:h-5" />}
                 </button>
-                <h1 className="text-lg sm:text-2xl font-bold text-gradient">
+                <h1 className="text-base sm:text-lg lg:text-2xl font-bold text-gradient">
                   🧠 <span className="hidden sm:inline">DSA Mastery Hub</span>
                   <span className="sm:hidden">DSA Hub</span>
                 </h1>
               </div>
               
-              <div className="flex items-center space-x-2 sm:space-x-4">
+              <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-4">
                 <UserProfile />
                 <button
                   onClick={toggleTheme}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Toggle theme"
                 >
-                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                  {isDarkMode ? <Sun size={18} className="sm:w-5 sm:h-5" /> : <Moon size={18} className="sm:w-5 sm:h-5" />}
                 </button>
               </div>
             </div>
@@ -104,15 +118,15 @@ function App() {
               onCollapse={(collapsed) => setIsSidebarCollapsed(collapsed)}
             />
             
-            {/* Main Content */}
+            {/* Main Content - Responsive */}
             <main className={`flex-1 transition-all duration-300 ${
               isSidebarOpen 
                 ? isSidebarCollapsed 
-                  ? 'ml-0 lg:ml-16' 
-                  : 'ml-0 lg:ml-64'
+                  ? 'ml-12 sm:ml-16' 
+                  : 'ml-56 sm:ml-64'
                 : 'ml-0'
             }`}>
-              <div className="p-4 sm:p-6">
+              <div className="p-3 sm:p-4 lg:p-6">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
