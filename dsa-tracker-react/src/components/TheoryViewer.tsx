@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { BookOpen, Clock, CheckCircle, ArrowLeft, ArrowRight, Search, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ContentService } from '../services/ContentService'
+import { GitHubContentService } from '../services/GitHubContentService'
 import { progressService } from '../services/ProgressService'
 import FileExplorer from './FileExplorer'
 import type { TheoryContent } from '../App'
@@ -19,7 +20,7 @@ const TheoryViewer = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
-  const [studyStartTime, setStudyStartTime] = useState<Date | null>(null)
+  const [_studyStartTime, setStudyStartTime] = useState<Date | null>(null) // Variable used for tracking but not read
 
   // Load theory files using ContentService
   useEffect(() => {
@@ -54,28 +55,18 @@ const TheoryViewer = () => {
     setSelectedFile(null) // Clear topic-based selection
 
     try {
-      const response = await fetch(`/api/content/${encodeURIComponent(filePath)}`)
-      if (response.ok) {
-        let data
-        try {
-          data = await response.json()
-        } catch {
-          setFileContent('Failed to parse file content')
-          setLoadingFile(false)
-          return
-        }
-        setFileContent(data.content || '')
-        // Start new study session
-        const materialId = filePath.replace(/[\/\\]/g, '_').replace('.md', '')
-        const sessionId = progressService.startStudySession(materialId)
-        setCurrentSessionId(sessionId)
-        setStudyStartTime(new Date())
-      } else {
-        setFileContent('Failed to load file content')
-      }
+      // Load content directly from GitHub
+      const content = await GitHubContentService.loadFileContent(filePath)
+      setFileContent(content)
+      
+      // Start new study session
+      const materialId = filePath.replace(/[\/\\]/g, '_').replace('.md', '')
+      const sessionId = progressService.startStudySession(materialId)
+      setCurrentSessionId(sessionId)
+      setStudyStartTime(new Date())
     } catch (error) {
-      console.error('Error loading file:', error)
-      setFileContent('Error loading file content')
+      console.error('Error loading file from GitHub:', error)
+      setFileContent(`# Error Loading File\n\nFailed to load content from GitHub for: \`${filePath}\`\n\n**Error**: ${error instanceof Error ? error.message : 'Unknown error'}\n\n## Possible Solutions:\n\n1. **Check your internet connection**\n2. **Verify the file exists in the repository**:\n   - [View on GitHub](https://github.com/Kamalbura/explanations/blob/main/dsa-tracker-react/public/explanations/${filePath})\n3. **Try refreshing the page**\n4. **Check if GitHub is accessible**\n\nThe file should be available at:\n\`https://github.com/Kamalbura/explanations/tree/main/dsa-tracker-react/public/explanations/${filePath}\``)
     } finally {
       setLoadingFile(false)
     }

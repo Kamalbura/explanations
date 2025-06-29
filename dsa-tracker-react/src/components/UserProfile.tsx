@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { User, Settings } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { userService, type UserAccount } from '../services/UserService'
+import userService, { type UserAccount } from '../services/UserService'
 import { useLeetCodeAuth } from '../contexts/LeetCodeAuthContext'
 
 const UserProfile = () => {
@@ -23,12 +23,15 @@ const UserProfile = () => {
       setUserAccount(account)
     }
 
+    // Listen for various events that could change the account
     window.addEventListener('storage', handleStorageChange)
     window.addEventListener('settingsUpdated', handleStorageChange)
+    window.addEventListener('accountReset', handleStorageChange)
     
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('settingsUpdated', handleStorageChange)
+      window.removeEventListener('accountReset', handleStorageChange)
     }
   }, [])
 
@@ -46,9 +49,12 @@ const UserProfile = () => {
       .slice(0, 2)
   }
 
-  const displayName = userAccount?.displayName || 'Guest User'
-  const email = userAccount?.email || ''
   const leetcodeUsername = isAuthenticated && userData ? userData.profile.username : ''
+  // Prioritize LeetCode data when authenticated, otherwise fallback to local user account data
+  const displayName = (isAuthenticated && userData) 
+    ? (userData.profile.realName || userData.profile.username) // Use real name if available, otherwise username
+    : userAccount?.displayName || 'Guest User'
+  const email = userAccount?.email || ''
 
   return (
     <div className="relative">

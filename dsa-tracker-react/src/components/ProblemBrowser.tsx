@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Search, Filter, SortAsc, ExternalLink, CheckCircle, Circle, Clock, RefreshCw, TrendingUp, Target, BookOpen, Code, Grid, List, LayoutGrid } from 'lucide-react'
+import { Search, Filter, ExternalLink, CheckCircle, Circle, Clock, RefreshCw, TrendingUp, Grid, List, LayoutGrid } from 'lucide-react'
 import { LeetCodeService, type LeetCodeStats } from '../services/LeetCodeService'
-import { leetCodeProblemsService, type LeetCodeProblem, type ProblemCategory } from '../services/LeetCodeProblemsService'
+import { leetCodeProblemsService } from '../services/LeetCodeProblemsService'
 
 interface Problem {
   id: string
@@ -28,7 +28,6 @@ type ViewMode = 'cards' | 'compact' | 'list'
 const ProblemBrowser = () => {
   const [problems, setProblems] = useState<Problem[]>([])
   const [filteredProblems, setFilteredProblems] = useState<Problem[]>([])
-  const [problemCategories, setProblemsCategories] = useState<ProblemCategory[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -49,7 +48,7 @@ const ProblemBrowser = () => {
     try {
       // Load categories and problems
       const categoriesData = await leetCodeProblemsService.getAllCategories()
-      setProblemsCategories(categoriesData)
+      // Categories loaded but not used in current implementation
 
       // Convert LeetCode problems to our Problem interface
       const allProblems: Problem[] = []

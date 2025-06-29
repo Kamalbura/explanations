@@ -23,7 +23,7 @@ const FloatingDeveloperBadge = () => {
 
         {/* Expanded Card */}
         {isExpanded && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 min-w-[280px] animate-in slide-in-from-bottom-2 duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 min-w-[280px] animate-slide-up">
             <div className="text-center">
               {/* Header */}
               <div className="flex items-center justify-center gap-2 mb-3">

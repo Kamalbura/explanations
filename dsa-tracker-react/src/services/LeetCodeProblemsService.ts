@@ -102,7 +102,7 @@ class LeetCodeProblemsService {
   async getAllCategories(): Promise<ProblemCategory[]> {
     const categories: ProblemCategory[] = []
 
-    for (const [categoryName, tags] of Object.entries(this.DSA_CATEGORIES)) {
+    for (const [categoryName, _tags] of Object.entries(this.DSA_CATEGORIES)) {
       const problems = await this.fetchProblems(categoryName.toLowerCase(), 20)
       categories.push({
         name: categoryName,
@@ -214,7 +214,7 @@ class LeetCodeProblemsService {
   }
 
   // Get user's solved problems (simulated)
-  async getUserSolvedProblems(username: string): Promise<string[]> {
+  async getUserSolvedProblems(_username: string): Promise<string[]> {
     // In production, this would fetch from LeetCode API
     // For now, return random solved problems
     const allProblems = await this.fetchProblems('all', 100)

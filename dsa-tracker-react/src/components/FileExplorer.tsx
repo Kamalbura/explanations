@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen } from 'lucide-react'
+import { GitHubContentService } from '../services/GitHubContentService'
 
 interface FileItem {
   name: string
@@ -27,16 +28,29 @@ const FileExplorer = ({ onFileSelect, selectedFile }: FileExplorerProps) => {
 
   const loadDirectory = async (dirPath: string) => {
     try {
-      const response = await fetch(`/api/files/${encodeURIComponent(dirPath)}`)
-      if (response.ok) {
-        const data = await response.json()
-        setFileTree(prev => ({
-          ...prev,
-          [dirPath]: data.files || []
-        }))
-      }
+      // Load directory contents from GitHub
+      const githubFiles = await GitHubContentService.getDirectoryStructure(dirPath)
+      
+      // Convert GitHub file format to our FileItem format
+      const files: FileItem[] = githubFiles.map(file => ({
+        name: file.name,
+        path: dirPath ? `${dirPath}/${file.name}` : file.name,
+        isDirectory: file.type === 'dir',
+        size: file.type === 'file' ? undefined : undefined, // GitHub API doesn't provide size in directory listing
+        extension: file.type === 'file' ? file.name.split('.').pop() || null : null
+      }))
+      
+      setFileTree(prev => ({
+        ...prev,
+        [dirPath]: files
+      }))
     } catch (error) {
-      console.error('Error loading directory:', error)
+      console.error('Error loading directory from GitHub:', error)
+      // Set empty array for failed directory loads
+      setFileTree(prev => ({
+        ...prev,
+        [dirPath]: []
+      }))
     } finally {
       setLoading(false)
     }

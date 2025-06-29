@@ -1,5 +1,5 @@
 import type { TheoryContent } from '../App'
-import { LocalFileService, type TopicContent, type FileInfo } from './LocalFileService'
+import { LocalFileService, type TopicContent } from './LocalFileService'
 import { LeetCodeService } from './LeetCodeService'
 
 // Base API URL for content server
@@ -35,7 +35,7 @@ export class ContentService {
   /**
    * Get directory contents directly from the content server
    */
-  static async getDirectoryContents(dirPath: string): Promise<FileInfo[]> {
+  static async getDirectoryContents(dirPath: string): Promise<any[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/files/${dirPath}`);
       if (!response.ok) {
@@ -209,3 +209,4 @@ export class ContentService {
     }
   }
 }
+

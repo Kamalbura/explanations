@@ -170,6 +170,7 @@ const StudyPlan = () => {
           totalMaterials: end.totalMaterials,
           totalTimeSpent: start.totalTimeSpent + t * (end.totalTimeSpent - start.totalTimeSpent),
           currentStreak: Math.round(start.currentStreak + t * (end.currentStreak - start.currentStreak)),
+          categoriesProgress: end.categoriesProgress
         })
         if (t < 1) rafRef.current = requestAnimationFrame(animate)
       }

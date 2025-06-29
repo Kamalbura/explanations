@@ -79,10 +79,10 @@ function App() {
   return (
     <LeetCodeAuthProvider>
       <Router>
-        <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300`}>
+        <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 flex flex-col`}>
           {/* Header - Responsive */}
-          <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between px-3 sm:px-4 lg:px-6 py-2 sm:py-3">
+          <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <div className="flex items-center justify-between px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2">
               <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4">
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -110,7 +110,7 @@ function App() {
             </div>
           </header>
 
-          <div className="flex">
+          <div className="flex flex-1 relative">
             {/* Sidebar Navigation */}
             <Navigation 
               isOpen={isSidebarOpen} 
@@ -119,14 +119,14 @@ function App() {
             />
             
             {/* Main Content - Responsive */}
-            <main className={`flex-1 transition-all duration-300 ${
+            <main className={`flex-1 transition-all duration-300 overflow-y-auto pt-2 ${
               isSidebarOpen 
                 ? isSidebarCollapsed 
                   ? 'ml-12 sm:ml-16' 
                   : 'ml-56 sm:ml-64'
                 : 'ml-0'
             }`}>
-              <div className="p-3 sm:p-4 lg:p-6">
+              <div className="p-3 sm:p-4 lg:p-6 relative min-h-full mt-2">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />

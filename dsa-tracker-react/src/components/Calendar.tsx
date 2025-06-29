@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Calendar as CalendarIcon, Plus, Clock, AlertTriangle, CheckCircle, Edit, Trash2, Target, BookOpen, Users, Calendar as CalendarIconOutline } from 'lucide-react'
+import { Calendar as CalendarIcon, Plus, AlertTriangle, CheckCircle, Edit, Trash2, Target, BookOpen, Users, Calendar as CalendarIconOutline } from 'lucide-react'
 import { calendarService, type CalendarEvent } from '../services/CalendarService'
 
 const Calendar = () => {
@@ -116,7 +116,7 @@ const Calendar = () => {
   const handleUpdateEvent = () => {
     if (!editingEvent) return
 
-    const updatedEvent = calendarService.updateEvent(editingEvent.id, {
+    calendarService.updateEvent(editingEvent.id, {
       title: eventForm.title,
       type: eventForm.type,
       date: eventForm.date,

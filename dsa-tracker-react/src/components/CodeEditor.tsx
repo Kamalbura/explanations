@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Editor from '@monaco-editor/react'
 import { Play, Save, RotateCcw, Settings, Loader2 } from 'lucide-react'
-import { LeetCodeService } from '../services/LeetCodeService'
+
 import type { LeetCodeProblem } from '../services/LeetCodeService'
 
 interface CodeSnippet {
@@ -53,7 +53,7 @@ const CodeEditor = () => {
       setLoadingStage('Loading problems...')
 
       // Try to get LeetCode problems from the API
-      const problems = await LeetCodeService.getAllProblems(30)
+      const problems: LeetCodeProblem[] = []
       
       if (problems && problems.length > 0) {
         setLeetcodeProblems(problems)
@@ -156,7 +156,7 @@ const CodeEditor = () => {
       setIsLoading(true)
       setLoadingStage('Loading problem details...')
       
-      const details = await LeetCodeService.getProblemDetailsBySlug(titleSlug)
+      const details: any = null
       
       if (details) {
         setProblemDetails(details)

@@ -11,13 +11,8 @@ const LeetCodeLogin = () => {
       // Extract username from URL if user enters a full URL
       let username = inputUsername.trim();
       
-      // Special case for burakamal13
-      if (username.toLowerCase() === "burakamal13" || 
-          username.includes("burakamal13")) {
-        username = "burakamal13"; // Ensure exact casing
-      }
       // Handle different URL formats
-      else if (username.includes('leetcode.com')) {
+      if (username.includes('leetcode.com')) {
         // Handle full URL format - matches both leetcode.com/username and leetcode.com/u/username
         const urlMatch = username.match(/leetcode\.com\/(u\/)?([^/]+)\/?/);
         if (urlMatch && urlMatch[2]) {

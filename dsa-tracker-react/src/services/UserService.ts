@@ -25,10 +25,10 @@ class UserService {
 
   // Mock user data for development
   private defaultUser: UserAccount = {
-    id: 'user_001',
-    username: 'burakamal13',
-    displayName: 'Burak Amal',
-    email: 'burakamal13@gmail.com',
+    id: 'user_default',
+    username: 'guest',
+    displayName: 'Guest User',
+    email: 'user@example.com',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     preferences: {
@@ -59,6 +59,13 @@ class UserService {
   // Get current user account
   getCurrentAccount(): UserAccount {
     return this.initializeAccount()
+  }
+  
+  // Reset account to default (used during logout)
+  resetAccount(): void {
+    localStorage.removeItem(this.STORAGE_KEY)
+    // Dispatch an event to notify components of the change
+    window.dispatchEvent(new Event('accountReset'))
   }
 
   // Update account information
@@ -255,4 +262,5 @@ class UserService {
   }
 }
 
-export const userService = new UserService()
+const userService = new UserService()
+export default userService

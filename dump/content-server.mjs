@@ -39,9 +39,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const EXPLANATIONS_PATH = path.join(__dirname, '../');
 const PUBLIC_EXPLANATIONS_PATH = path.join(__dirname, 'public/explanations');
 
-// Correct path to the explanations folder the user specified
-const USER_EXPLANATIONS_PATH = 'C:/Users/burak/Desktop/prep/DSA_Approaches/explanations';
-const ABSOLUTE_EXPLANATIONS_PATH = path.resolve(USER_EXPLANATIONS_PATH);
+// Dynamic path to the explanations folder
+const USER_EXPLANATIONS_PATH = path.resolve(__dirname, '..');
+const ABSOLUTE_EXPLANATIONS_PATH = USER_EXPLANATIONS_PATH;
 
 // Debug path information
 console.log('Path configurations:');

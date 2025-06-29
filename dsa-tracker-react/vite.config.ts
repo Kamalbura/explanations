@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     viteBackendPlugin({
       port: 3001,
-      explanationsPath: 'C:/Users/burak/Desktop/prep/DSA_Approaches/explanations'
+      explanationsPath: path.resolve('./..') // Use relative path instead of hardcoded user path
     })
   ],
   server: {

@@ -194,7 +194,8 @@ class ProgressService {
   // Get progress statistics
   getStats(): ProgressStats {
     const progress = this.getProgress()
-    const sessions = this.getSessions()
+    // Sessions not currently used
+    this.getSessions()
     
     const totalMaterials = progress.length
     const completedMaterials = progress.filter(p => p.isCompleted).length

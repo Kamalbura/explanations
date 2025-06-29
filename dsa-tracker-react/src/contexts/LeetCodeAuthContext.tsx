@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { fetchLeetCodeUserData } from '../services/leetcode/leetcode-api';
 import type { LeetCodeUserData } from '../services/leetcode/leetcode-api';
+import userService from '../services/UserService';
 
 interface LeetCodeAuthContextType {
   isAuthenticated: boolean;
@@ -41,12 +42,7 @@ export const LeetCodeAuthProvider: React.FC<LeetCodeAuthProviderProps> = ({ chil
     setIsLoading(true);
     setError(null);
     
-    try {
-      // Handle special case for burakamal13 (your username)
-      if (leetcodeUsername.toLowerCase() === "burakamal13") {
-        leetcodeUsername = "burakamal13"; // Ensure exact casing
-      }
-      
+    try {      
       console.log(`Attempting to login with username: "${leetcodeUsername}"`);
       let data;
       
@@ -66,7 +62,6 @@ export const LeetCodeAuthProvider: React.FC<LeetCodeAuthProviderProps> = ({ chil
               data = await fetchLeetCodeUserData(leetcodeUsername.toLowerCase());
             } catch (lowercaseError) {
               console.log("Lowercase attempt failed");
-              // If burakamal13 was already tried and failed, we can't do much more
               throw firstError;
             }
           } else {
@@ -94,10 +89,14 @@ export const LeetCodeAuthProvider: React.FC<LeetCodeAuthProviderProps> = ({ chil
   };
 
   const logout = (): void => {
+    // Clear LeetCode auth data
     setUserData(null);
     setUsername(null);
     setIsAuthenticated(false);
     localStorage.removeItem('leetcode_username');
+    
+    // Reset user account data to default guest user
+    userService.resetAccount();
   };
 
   const refreshData = async (): Promise<void> => {

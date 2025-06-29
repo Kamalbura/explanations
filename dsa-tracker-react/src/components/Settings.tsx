@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Save,
   User,
@@ -6,16 +6,11 @@ import {
   CheckCircle,
   AlertCircle,
   Settings as SettingsIcon,
-  Camera,
-  Download,
-  Edit,
 } from 'lucide-react'
 import { LeetCodeService } from '../services/LeetCodeService'
 import { useLeetCodeAuth } from '../contexts/LeetCodeAuthContext'
-import {
-  userService,
+import userService, {
   type UserAccount,
-  type UpdateAccountRequest,
 } from '../services/UserService'
 
 interface UserSettings {
@@ -41,18 +36,9 @@ const DEFAULT_SETTINGS: UserSettings = {
 const Settings = () => {
   // LeetCode Auth Context
   const { isAuthenticated, userData, login, logout, refreshData } = useLeetCodeAuth()
-  
+
   // User Account State
-  const [userAccount, setUserAccount] = useState<UserAccount | null>(null)
-  const [editingAccount, setEditingAccount] = useState(false)
-  const [accountForm, setAccountForm] = useState({
-    displayName: '',
-    email: '',
-    username: '',
-  })
-  const [savingAccount, setSavingAccount] = useState(false)
-  const [accountMessage, setAccountMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [_userAccount, setUserAccount] = useState<UserAccount | null>(null)
 
   // Settings State
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS)
@@ -63,18 +49,11 @@ const Settings = () => {
 
   // Load settings and user account from localStorage on component mount
   useEffect(() => {
-    // Load user account
     const account = userService.getCurrentAccount()
     if (account) {
       setUserAccount(account)
-      setAccountForm({
-        displayName: account.displayName,
-        email: account.email,
-        username: account.username,
-      })
     }
 
-    // Load app settings
     const savedSettings = localStorage.getItem('dsa-tracker-settings')
     if (savedSettings) {
       try {
@@ -94,115 +73,12 @@ const Settings = () => {
   // Sync settings with LeetCode auth context
   useEffect(() => {
     if (settings.leetcodeUsername && !isAuthenticated) {
-      // Try to authenticate if username is set but not connected
       login(settings.leetcodeUsername).catch(console.error)
     }
-    
     if (isAuthenticated && userData) {
       setValidationStatus('valid')
     }
   }, [settings.leetcodeUsername, isAuthenticated, userData, login])
-
-  // Account Management Functions
-  const handleAccountEdit = () => {
-    setEditingAccount(true)
-    setAccountMessage(null)
-  }
-
-  const handleAccountCancel = () => {
-    if (userAccount) {
-      setAccountForm({
-        displayName: userAccount.displayName,
-        email: userAccount.email,
-        username: userAccount.username,
-      })
-    }
-    setEditingAccount(false)
-    setAccountMessage(null)
-  }
-
-  const handleAccountSave = async () => {
-    setSavingAccount(true)
-    setAccountMessage(null)
-    try {
-      if (!accountForm.displayName.trim()) throw new Error('Display name is required')
-      if (!accountForm.email.trim()) throw new Error('Email is required')
-      if (!userService.validateEmail(accountForm.email)) throw new Error('Please enter a valid email address')
-
-      const updates: UpdateAccountRequest = {
-        displayName: accountForm.displayName,
-        email: accountForm.email,
-      }
-      const updatedAccount = await userService.updateAccount(updates)
-      setUserAccount(updatedAccount)
-      setEditingAccount(false)
-      setAccountMessage({ type: 'success', text: 'Account updated successfully!' })
-
-      // Emit custom event for UserProfile component
-      window.dispatchEvent(new CustomEvent('settingsUpdated'))
-
-      if (accountForm.username !== userAccount?.username) {
-        await userService.changeUsername(accountForm.username)
-        const refreshedAccount = userService.getCurrentAccount()
-        setUserAccount(refreshedAccount)
-      }
-    } catch (error) {
-      setAccountMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Failed to update account',
-      })
-    } finally {
-      setSavingAccount(false)
-    }
-  }
-
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      setAccountMessage({ type: 'error', text: 'Please select an image file' })
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setAccountMessage({ type: 'error', text: 'Image size must be less than 5MB' })
-      return
-    }
-
-    try {
-      setSavingAccount(true)
-      const avatarUrl = await userService.uploadAvatar(file)
-      const updatedAccount = await userService.updateAccount({ avatar: avatarUrl })
-      setUserAccount(updatedAccount)
-      setAccountMessage({ type: 'success', text: 'Avatar updated successfully!' })
-      window.dispatchEvent(new CustomEvent('settingsUpdated'))
-    } catch (error) {
-      setAccountMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Failed to upload avatar',
-      })
-    } finally {
-      setSavingAccount(false)
-    }
-  }
-
-  const handleExportData = () => {
-    try {
-      const data = userService.exportAccountData()
-      const blob = new Blob([data], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `dsa-tracker-data-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      setAccountMessage({ type: 'success', text: 'Data exported successfully!' })
-    } catch (error) {
-      setAccountMessage({ type: 'error', text: 'Failed to export data' })
-    }
-  }
 
   // LeetCode Username Validation
   const validateUsername = async () => {
@@ -212,19 +88,14 @@ const Settings = () => {
     }
     setValidating(true)
     try {
-      // If we're already authenticated with a different username, logout first
       if (isAuthenticated && userData?.profile.username !== settings.leetcodeUsername) {
-        logout()
+        await logout()
       }
-      
-      // Try to login with the new username
       await login(settings.leetcodeUsername)
       setValidationStatus('valid')
-      
-      // Update the settings in localStorage immediately
+      // Update settings in localStorage immediately
       const updatedSettings = { ...settings, leetcodeUsername: settings.leetcodeUsername }
       localStorage.setItem('dsa-tracker-settings', JSON.stringify(updatedSettings))
-      
       alert(`Successfully connected to LeetCode account: ${settings.leetcodeUsername}`)
     } catch (error) {
       setValidationStatus('invalid')
@@ -242,15 +113,11 @@ const Settings = () => {
     }
     setSaving(true)
     try {
-      // Use the LeetCodeAuthContext for syncing
       if (isAuthenticated && settings.leetcodeUsername === userData?.profile.username) {
-        // Just refresh existing data
         await refreshData()
       } else {
-        // Login with the new username
         await login(settings.leetcodeUsername)
       }
-      
       setLastSync(new Date())
       alert('Sync completed successfully!')
     } catch (error) {
@@ -266,7 +133,6 @@ const Settings = () => {
     setSaving(true)
     try {
       localStorage.setItem('dsa-tracker-settings', JSON.stringify(settings))
-      // If username is valid, also save user stats
       if (validationStatus === 'valid' && settings.leetcodeUsername) {
         const stats = await LeetCodeService.getUserStats(settings.leetcodeUsername)
         if (stats) {
@@ -293,7 +159,6 @@ const Settings = () => {
     } else if (theme === 'light') {
       root.classList.remove('dark')
     } else {
-      // System theme
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       if (prefersDark) root.classList.add('dark')
       else root.classList.remove('dark')
@@ -304,21 +169,26 @@ const Settings = () => {
     setSettings((prev) => ({ ...prev, [field]: value }))
     if (field === 'leetcodeUsername') {
       setValidationStatus('none')
-      // If the username changed and we're authenticated, show that we need to re-validate
-      if (isAuthenticated && userData?.profile.username !== value) {
-        setValidationStatus('none')
-      }
     }
   }
 
   const disconnectLeetCode = () => {
+    // Call logout which will also reset the user account
     logout()
+    
+    // Update UI state
     setValidationStatus('none')
     setSettings(prev => ({ ...prev, leetcodeUsername: '' }))
+    
+    // Remove LeetCode-specific storage items
     localStorage.removeItem('leetcode-stats')
     localStorage.removeItem('leetcode-submissions')
     localStorage.removeItem('last-leetcode-sync')
     setLastSync(null)
+    
+    // Update user account state in this component
+    setUserAccount(userService.getCurrentAccount())
+    
     alert('Disconnected from LeetCode successfully!')
   }
 
